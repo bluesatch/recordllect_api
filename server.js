@@ -2,12 +2,18 @@
 const express = require('express')
 const server = express()
 
+const cors = require('cors')
+
 
 // Import and config dotenv. For environmental variables
 const dotenv = require('dotenv')
 dotenv.config()
 
 server.use(express.json())
+server.use(cors({
+    origin: 'http://localhost:3001',
+    credentials: true
+}))
 
 // cookieParser
 const cookieParser = require('cookie-parser')
