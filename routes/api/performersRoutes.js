@@ -1,10 +1,19 @@
 const router = require('express').Router()
 const performerController = require('../../controllers/performerController')
 
-router.get('/', (req, res)=> {
-    res.status(200).send('Performers')
-})
+// GET
+router.get('/', performerController.getAllPerformers)
+router.get('/:id', performerController.getPerformerById)
 
-router.post('/create', performerController.createPerformer)
+// POST
+router.post('/', performerController.createPerformer)
+
+// PUT
+router.put('/:id', performerController.updatePerformer)
+
+/* 
+! DELETE
+*/
+router.delete('/:id', performerController.deletePerformer)
 
 module.exports = router

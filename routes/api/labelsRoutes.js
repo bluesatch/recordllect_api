@@ -1,10 +1,19 @@
 const router = require('express').Router()
 const labelController = require('../../controllers/labelControllers')
 
-router.get('/', (req, res)=> {
-    res.status(200).send('Labels')
-})
+// GET
+router.get('/', labelController.getAllLabels)
+router.get('/:id', labelController.getLabelById)
 
-router.post('/create', labelController.createLabel)
+// POST
+router.post('/', labelController.createLabel)
+
+// PUT
+router.put('/:id', labelController.updateLabel)
+
+/**
+ * ! DELETE
+ */
+router.delete('/:id', labelController.deleteLabel)
 
 module.exports = router

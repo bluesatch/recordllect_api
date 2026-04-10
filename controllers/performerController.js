@@ -82,3 +82,193 @@ exports.createPerformer = async (req, res, next)=> {
         con.release()
     }
 }
+
+exports.getAllPerformers = async (req, res, next)=> {
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT
+                p.performer_id,
+                p.performer_type,
+                COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name,
+                COALESCE(ar.date_of_birth, b.formed_year) AS started,
+                COALESCE(ar.date_of_death, b.disbanded_year) AS ended,
+                COALESCE(b.country, NULL) AS country,
+                p.created_at
+            FROM performers p
+            LEFT JOIN artists ar ON p.performer_id = ar.performer_id
+            LEFT JOIN bands b ON p.performer_id = b.performer_id
+            ORDER by performer_name ASC`
+        )
+
+        res.status(200).json({
+            count: rows.length,
+            performers: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.getPerformerById = async (req, res, next) => {
+    const { id } = req.params
+
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT
+                p.performer_id,
+                p.performer_type,
+                ar.first_name,
+                ar.last_name,
+                ar.alias,
+                ar.date_of_birth,
+                ar.date_of_death,
+                b.band_name,
+                b.formed_year,
+                b.disbanded_year,
+                b.country,
+                p.created_at
+            FROM performers p
+            LEFT JOIN artists ar ON p.performer_id = ar.performer_id
+            LEFT JOIN bands b ON p.performer_id = b.performer_id
+            WHERE p.performer_id = ?`,
+            [id]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Performer not found' })
+        }
+
+        const performer = rows[0]
+
+        // If artist, also fetch their instruments
+        if (performer.performer_type === 'artist') {
+            const [ instruments ] = await pool.execute(
+                `SELECT i.instrument_id, i.instrument_name
+                FROM artist_instruments ai
+                JOIN instruments i ON ai.instrument_id = i.instrument_id
+                WHERE ai.artist_id = (
+                    SELECT artist_id FROM artists WHERE performer_id = ?)`,
+                [id]
+            )
+            performer.instruments = instruments
+        }
+
+        //  If band, also fetch their members
+        if (performer.performer_type === 'band') {
+            const [ members ] = await pool.execute(
+                    `SELECT
+                        ar.artist_id,
+                        COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name)) AS member_name,
+                        bm.joined_year,
+                        bm.left_year
+                    FROM band_members bm
+                    JOIN artists ar ON bm.artist_id = ar.artist_id
+                    WHERE bm.band_id = (
+                        SELECT band_id FROM bands WHERE performer_id = ?
+                    )`,
+                    [id]
+            )
+            performer.members = members
+        }
+
+        res.status(200).json(performer)
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.updatePerformer = async (req, res, next)=> {
+    const { id } = req.params
+    const {
+        first_name,
+        last_name,
+        alias,
+        date_of_birth,
+        date_of_death,
+        band_name,
+        formed_year,
+        disbanded_year,
+        country
+    } = req.body
+
+    const con = await pool.getConnection()
+
+    try {   
+        await con.beginTransaction()
+
+        const [ rows ] = await con.execute(
+                `SELECT performer_type FROM performers WHERE performer_id = ?`,
+                [id]
+        ) 
+
+        if (rows.length === 0) {
+            await con.rollback()
+            return res.status(404).json({ message: 'Performer not found'})
+        }
+
+        const { performer_type } = rows[0]
+
+        /**
+         * COALESCE => ensures a clean PUT. 
+         * 
+         * "Use the new value if provided, otherwise keep the existing value"
+         */
+
+        if (performer_type === 'artist') {
+            await con.execute(
+                `UPDATE artists SET
+                    first_name = COALESCE(?, first_name),
+                    last_name = COALESCE(?, last_name),
+                    alias = COALESCE(?, alias),
+                    date_of_birth = COALESCE(?, date_of_birth),
+                    date_of_death = COALESCE(?, date_of_death)
+                WHERE performer_id = ?`,
+                [first_name || null, last_name || null, alias || null, date_of_birth || null, date_of_death || null, id]
+            )
+        } else {
+            await con.execute(
+                `UPDATE bands SET
+                    band_name = COALESCE(?, band_name),
+                    formed_year = COALESCE(?, formed_year),
+                    disbanded_year = COALESCE(?, disbanded_year),
+                    country = COALESCE(?, country)
+                WHERE performer_id = ?`,
+                [band_name || null, formed_year || null, disbanded_year || null, country || null, id]
+                
+            )
+        }
+
+        await con.commit()
+
+        res.status(200).json({ message: 'Performer updated successfully' })
+
+    } catch (err) {
+        await con.rollback()
+        next(err)
+    } finally {
+        con.release()
+    }
+}
+
+exports.deletePerformer = async (req, res, next)=> {
+    const { id } = req.params
+
+    try {
+        const [ result ] = await pool.execute(
+            `DELETE FROM performers WHERE performer_id = ?`, [id]
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Performer not found' })
+        }
+
+        res.status(200).json({ message: 'Performer deleted successfully' })
+    } catch (err) {
+        // ER_ROW_IS_REFERENCED_2 the MySQL error thrown when trying to delete a parent row that has child rows referencing it
+        
+        if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(409).json({ message: 'Cannot delete performer - they have albums associated with them' })
+        }
+        next(err)
+    }
+}
