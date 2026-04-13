@@ -3,12 +3,34 @@ const pool = require('../config/dbconfig')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 
+// Validate password
+const validatePassword = (password)=> {
+    const rules = [
+        { test: password.length >= 8, message: 'At least 8 characters' },
+        { test: /[A-Z]/.test(password), message: 'At least one uppercase letter' },
+        { test: /[a-z]/.test(password), message: 'At least one lowercase letter' },
+        { test: /[^A-Za-z0-9]/.test(password), message: 'At least one special character' }
+    ]
+
+    return rules.filter(rule => !rule.test).map(rule => rule.message)
+}
+
+
+// Register user
 exports.register = async (req, res, next)=> {
     const { first_name, last_name, email, password } = req.body
 
     // input validation
     if (!first_name || !last_name || !email || !password) {
         return res.status(400).json({ message: 'All fields are required' })
+    }
+
+    const passwordErrors = validatePassword(password)
+
+    if (passwordErrors.length > 0) {
+        return res.status(400).json({
+            message: `Password must contain: ${passwordErrors.join(', ')}`
+        })
     }
 
     try {
@@ -31,6 +53,8 @@ exports.register = async (req, res, next)=> {
     }
 }
 
+
+// Login user
 exports.login = async (req, res, next)=> {
     const { email, password } = req.body
 
@@ -77,6 +101,8 @@ exports.login = async (req, res, next)=> {
     }
 }
 
+
+// Logout user
 exports.logout = (req, res)=> {
     res.clearCookie('token')
     res.json({ message: 'Logged out successfully'})
@@ -131,6 +157,8 @@ exports.getUserById = async (req, res, next) => {
     }
 }
 
+
+// Update user
 exports.updateUser = async (req, res, next) => {
     const { id } = req.params
     const {
@@ -177,6 +205,137 @@ exports.updateUser = async (req, res, next) => {
         }
 
         res.status(200).json({ message: 'User updated successfully' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.getMe = async (req, res, next)=> {
+
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT
+                users_id,
+                first_name,
+                last_name,
+                email,
+                address_line_1,
+                address_line_2,
+                city,
+                state,
+                postal_code,
+                country,
+                status,
+                email_verified_at,
+                profile_image_url,
+                created_at,
+                updated_at
+            FROM users
+            WHERE users_id = ?`,
+            [req.user.users_id]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+
+        const user = rows[0]
+
+        const [followStats] = await pool.execute(
+            `SELECT
+                (SELECT COUNT(*) FROM follows WHERE following_id = ?) AS followers_count,
+                (SELECT COUNT(*) FROM follows WHERE follower_id = ?) AS following_count`,
+            [req.user.users_id, req.user.users_id]
+        )
+
+        user.followers_count = followStats[0].followers_count
+        user.following_count = followStats[0].following_count
+
+        res.status(200).json(user)
+
+    } catch (err) {
+        next(err)
+    }
+}
+
+// Get user's album collection
+exports.getUserAlbums = async (req, res, next)=> {
+    const { id } = req.params
+
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT 
+                ua.user_album_id,
+                ua.added_at,
+                a.album_id,
+                a.title,
+                a.release_year,
+                a.album_image_url,
+                v.performer_name,
+                v.performer_type,
+                v.label_name,
+                v.format_name
+            FROM user_albums ua
+            JOIN albums a ON ua.album_id = a.album_id
+            JOIN v_album_details v ON a.album_id = v.album_id
+            WHERE ua.users_id = ?
+            ORDER BY ua.added_at DESC`,
+            [id]
+        )
+
+        res.status(200).json({
+            count: rows.length,
+            albums: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.addUserAlbum = async (req, res, next)=> {
+    const { id } = req.params
+    const { album_id } = req.body 
+
+    if (!album_id) {
+        return res.status(400).json({ message: 'album_id is required'})
+    }
+
+    try {
+        const [ result ] = await pool.execute(
+            `INSERT INTO user_albums (users_id, album_id) VALUES (?, ?)`,
+            [id, album_id]
+        )
+
+        res.status(201).json({
+            message: 'Album added to collection',
+            user_album_id: result.insertId
+        })
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Album already in collection'})
+        }
+
+        if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+            return res.status(400).json({ message: 'Invalid album_id'})
+        }
+        next(err)
+    }
+}
+
+exports.removeUserAlbum = async (req, res, next) => {
+    const { id, album_id } = req.params
+
+    try {
+        const [ result ] = await pool.execute(
+            `DELETE FROM user_albums WHERE users_id = ? AND album_id = ?`,
+            [id, album_id]
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Album not found in collection' })
+        }
+
+        res.status(200).json({ message: 'Album removed from collection' })
     } catch (err) {
         next(err)
     }
