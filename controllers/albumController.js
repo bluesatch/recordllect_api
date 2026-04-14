@@ -112,10 +112,10 @@ exports.getAllAlbums = async (req, res, next) => {
         }
 
         const whereClause = conditions.length > 0 
-            ? `WHERE ${conditons.join(' AND ')}`
+            ? `WHERE ${conditions.join(' AND ')}`
             : ''
 
-        // Count totla matching records
+        // Count total matching records
         const [ countResult ] = await pool.query(
             `SELECT COUNT(*) AS total
             FROM albums a
