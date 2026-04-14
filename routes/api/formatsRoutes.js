@@ -1,7 +1,6 @@
 const router = require('express').Router()
+const formatController = require('../../controllers/formatController')
 
-router.get('/', (req, res)=> {
-    res.status(200).send('Formats')
-})
+router.get('/', formatController.getAllFormats)
 
 module.exports = router

@@ -1,7 +1,6 @@
 const router = require('express').Router()
+const genreController = require('../../controllers/genreController')
 
-router.get('/', (req, res)=> {
-    res.status(200).send('Genres')
-})
+router.get('/', genreController.getAllGenres)
 
 module.exports = router

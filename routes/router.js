@@ -15,18 +15,18 @@ router.get('/', (req, res)=> {
     })
 })
 
-// const endpoints = [
-//     'users', 'artists', 'albums', 'performers', 'bands', 'genres', 'labels', 'formats'
-// ]
+const endpoints = [
+    'users', 'artists', 'albums', 'performers', 'bands', 'genres', 'labels', 'formats'
+]
 
-// endpoints.forEach(endpoint => {
-//     router.use(`/${endpoint}`, require(`./api/${endpoint}Routes`))
-// })
+endpoints.forEach(endpoint => {
+    router.use(`/${endpoint}`, require(`./api/${endpoint}Routes`))
+})
 
-router.use('/users', require('./api/usersRoutes'))
-router.use('/performers', require('./api/performersRoutes'))
-router.use('/albums', require('./api/albumsRoutes'))
-router.use('/labels', require('./api/labelsRoutes'))
+// router.use('/users', require('./api/usersRoutes'))
+// router.use('/performers', require('./api/performersRoutes'))
+// router.use('/albums', require('./api/albumsRoutes'))
+// router.use('/labels', require('./api/labelsRoutes'))
 
 
 /** ERROR HANDLING **/

@@ -79,10 +79,61 @@ exports.createAlbum = async (req, res, next)=> {
 }
 
 exports.getAllAlbums = async (req, res, next) => {
+
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const offset = (page - 1) * limit 
+    const search = req.query.search || ''
+    const format = req.query.format || ''
+    const genre = req.query.genre || ''
+
     try {
-        const [ rows ] = await pool.execute(
+        // Updating to allow filtering...creating dynamic WHERE clause
+        const conditions = []
+        const params = []
+
+        if (search) {
+            conditions.push(`(a.title LIKE ? OR v.performer_name LIKE ? OR l.label_name LIKE ?)`)
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+        }
+
+        if (format) {
+            conditions.push(`f.format_name = ?`)
+            params.push(format)
+        }
+
+        if (genre) {
+            conditions.push(`EXISTS (
+                SELECT 1 FROM album_genres ag
+                JOIN genres g ON ag.genre_id = g.genre_id
+                WHERE ag.album_id = a.album_id AND g.genre_name = ?
+            )`)
+            params.push(genre) 
+        }
+
+        const whereClause = conditions.length > 0 
+            ? `WHERE ${conditons.join(' AND ')}`
+            : ''
+
+        // Count totla matching records
+        const [ countResult ] = await pool.query(
+            `SELECT COUNT(*) AS total
+            FROM albums a
+            JOIN v_album_details v ON a.album_id = v.album_id
+            LEFT JOIN labels l ON a.label_id = l.label_id
+            JOIN formats f ON a.format_id = f.format_id
+            ${whereClause}`,
+            params
+        )
+
+        const total = countResult[0].total
+        const totalPages = Math.ceil(total / limit)
+
+        // Fetch paginated results
+        const [ rows ] = await pool.query(
             `SELECT 
                 a.album_id,
+                a.performer_id,
                 a.title,
                 a.serial_no,
                 a.release_year,
@@ -91,14 +142,18 @@ exports.getAllAlbums = async (req, res, next) => {
                 v.performer_type,
                 v.performer_name,
                 v.label_name,
-                v.format_name,
+                f.format_name,
                 GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
             FROM albums a
             JOIN v_album_details v ON a.album_id = v.album_id
+            LEFT JOIN labels l ON a.label_id = l.label_id
+            JOIN formats f ON a.format_id = f.format_id
             LEFT JOIN album_genres ag ON a.album_id = ag.album_id
             LEFT JOIN genres g ON ag.genre_id = g.genre_id
+            ${whereClause}
             GROUP BY 
                 a.album_id,
+                a.performer_id,
                 a.title,
                 a.serial_no,
                 a.release_year,
@@ -107,12 +162,17 @@ exports.getAllAlbums = async (req, res, next) => {
                 v.performer_type,
                 v.performer_name,
                 v.label_name,
-                v.format_name
-            ORDER BY a.release_year ASC`
+                f.format_name
+            ORDER BY a.title ASC
+            LIMIT ? OFFSET ?`,
+            [...params, Number(limit), Number(offset)]
         )
 
         res.status(200).json({
             count: rows.length,
+            total,
+            page,
+            totalPages,
             albums: rows
         })
     } catch (err) {
@@ -127,6 +187,7 @@ exports.getAlbumById = async (req, res, next) => {
         // GET core album info via view
         const [ rows ] = await pool.execute(
             `SELECT
+                a.performer_id,
                 a.album_id,
                 a.title,
                 a.serial_no,
