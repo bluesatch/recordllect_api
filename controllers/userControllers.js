@@ -357,3 +357,57 @@ exports.removeUserAlbum = async (req, res, next) => {
         next(err)
     }
 }
+
+// Get user's followers
+exports.getFollowers = async (req, res, next) => {
+    const { id } = req.params
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT
+                u.users_id,
+                u.first_name,
+                u.last_name,
+                u.profile_image_url
+            FROM follows f
+            JOIN users u ON f.follower_id = u.users_id
+            WHERE f.following_id = ?
+            ORDER BY u.first_name ASC`,
+            [id]
+        )
+
+        res.status(200).json({
+            count: rows.length,
+            followers: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// Get users that a user is following
+exports.getFollowing = async (req, res, next) => {
+    const { id } = req.params
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT
+                u.users_id,
+                u.first_name,
+                u.last_name,
+                u.profile_image_url
+            FROM follows f
+            JOIN users u ON f.following_id = u.users_id
+            WHERE f.follower_id = ?
+            ORDER BY u.first_name ASC`,
+            [id]
+        )
+
+        res.status(200).json({
+            count: rows.length,
+            following: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}

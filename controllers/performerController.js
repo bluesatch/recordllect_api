@@ -1,5 +1,7 @@
 const pool = require('../config/dbconfig')
 
+
+// CREATE PERFORMER
 exports.createPerformer = async (req, res, next)=> {
     const {
         performer_type,
@@ -83,25 +85,76 @@ exports.createPerformer = async (req, res, next)=> {
     }
 }
 
+// GET ALL PERFORMERS
 exports.getAllPerformers = async (req, res, next)=> {
+
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const offset = (page - 1) * limit 
+    const search = req.query.search || ''
+    const type = req.query.type || ''
+
     try {
-        const [ rows ] = await pool.execute(
+
+        const conditions = []
+        const params = []
+
+        if (search) {
+            conditions.push(`(
+                ar.alias LIKE ? OR 
+                CONCAT(ar.first_name, ' ', ar.last_name) LIKE ? OR
+                b.band_name LIKE ?
+            )`)
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+        }
+
+        if (type && ['artist', 'band'].includes(type)) {
+            conditions.push(`p.performer_type = ?`)
+            params.push(type)
+        }
+
+        const whereClause = conditions.length > 0 
+            ? `WHERE ${conditions.join(' AND ')}`
+            : ''
+        
+        // COUNT TOTAL
+        const [ countResult ] = await pool.query(
+            `SELECT COUNT(*) AS total
+            FROM performers p
+            LEFT JOIN artists ar ON p.performer_id = ar.performer_id
+            LEFT JOIN bands b ON p.performer_id = b.performer_id
+            ${whereClause}`,
+            params
+        )
+
+        const total = countResult[0].total 
+        const totalPages = Math.ceil(total / limit)
+
+        // FETCH PAGINATED RESULTS
+        const [ rows ] = await pool.query(
             `SELECT
                 p.performer_id,
                 p.performer_type,
                 COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name,
-                COALESCE(ar.date_of_birth, b.formed_year) AS started,
-                COALESCE(ar.date_of_death, b.disbanded_year) AS ended,
-                COALESCE(b.country, NULL) AS country,
+                ar.date_of_birth,
+                ar.date_of_death,
+                b.formed_year,
+                b.disbanded_year,
+                b.country,
                 p.created_at
             FROM performers p
             LEFT JOIN artists ar ON p.performer_id = ar.performer_id
             LEFT JOIN bands b ON p.performer_id = b.performer_id
-            ORDER by performer_name ASC`
+            ${whereClause}
+            ORDER by performer_name ASC
+            LIMIT ? OFFSET ?`,
+            [...params, Number(limit), Number(offset)]
         )
 
         res.status(200).json({
             count: rows.length,
+            total,
+            totalPages,
             performers: rows
         })
     } catch (err) {
@@ -109,6 +162,7 @@ exports.getAllPerformers = async (req, res, next)=> {
     }
 }
 
+// GET PERFORMER BY ID
 exports.getPerformerById = async (req, res, next) => {
     const { id } = req.params
 
@@ -177,6 +231,8 @@ exports.getPerformerById = async (req, res, next) => {
     }
 }
 
+
+// UPDATE PERFORMER
 exports.updatePerformer = async (req, res, next)=> {
     const { id } = req.params
     const {
@@ -250,6 +306,8 @@ exports.updatePerformer = async (req, res, next)=> {
     }
 }
 
+
+// DELETE PERFORMER
 exports.deletePerformer = async (req, res, next)=> {
     const { id } = req.params
 

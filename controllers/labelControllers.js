@@ -1,5 +1,6 @@
 const pool = require('../config/dbconfig')
 
+// CREATE LABEL
 exports.createLabel = async (req, res, next)=> {
     const {
         label_name,
@@ -42,9 +43,38 @@ exports.createLabel = async (req, res, next)=> {
     }
 }
 
+// GET ALL LABELS
 exports.getAllLabels = async (req, res, next) => {
+
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const offset = (page - 1) * limit 
+    const search = req.query.search || ''
+
+
     try {
-        const [ rows ] = await pool.execute(
+
+        const conditions = []
+        const params = []
+
+        if (search) {
+            conditions.push(`label_name LIKE ?`)
+            params.push(`%${search}%`)
+        }
+
+        const whereClause = conditions.length > 0
+        ? `WHERE ${conditions.join(' AND ')}`
+        : ''
+
+        const [countResult] = await pool.query(
+            `SELECT COUNT(*) AS total FROM labels ${whereClause}`,
+            params
+        )
+
+        const total = countResult[0].total
+        const totalPages = Math.ceil(total / limit)
+
+        const [ rows ] = await pool.query(
             `SELECT 
                 label_id,
                 label_name,
@@ -54,11 +84,16 @@ exports.getAllLabels = async (req, res, next) => {
                 status, 
                 created_at
             FROM labels
-            ORDER BY label_name ASC`
+            ${whereClause}
+            ORDER BY label_name ASC
+            LIMIT ? OFFSET ?`,
+            [...params, Number(limit), Number(offset)]
         )
 
         res.status(200).json({
             count: rows.length,
+            total,
+            totalPages,
             labels: rows
         })
     } catch (err) {
@@ -66,6 +101,7 @@ exports.getAllLabels = async (req, res, next) => {
     }
 }
 
+// GET LABEL BY ID
 exports.getLabelById = async (req, res, next)=> {
     const { id } = req.params
 
@@ -115,6 +151,7 @@ exports.getLabelById = async (req, res, next)=> {
     }
 }
 
+// UPDATE LABEL
 exports.updateLabel = async (req, res, next) => {
     const { id } = req.params
     const {
@@ -161,6 +198,7 @@ exports.updateLabel = async (req, res, next) => {
     }
 }
 
+// DELETE LABEL
 exports.deleteLabel = async (req, res, next)=> {
     const { id } = req.params
     try {
