@@ -194,6 +194,8 @@ exports.getAlbumById = async (req, res, next) => {
                 a.release_year,
                 a.duration_seconds,
                 a.album_image_url,
+                a.label_id,
+                a.format_id,
                 v.performer_type,
                 v.performer_name,
                 v.label_name,

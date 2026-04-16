@@ -133,6 +133,7 @@ exports.getLabelById = async (req, res, next)=> {
                 a.album_id,
                 a.title,
                 a.release_year,
+                a.performer_id,
                 v.performer_name,
                 v.format_name
             FROM albums a
