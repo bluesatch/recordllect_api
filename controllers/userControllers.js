@@ -65,7 +65,7 @@ exports.login = async (req, res, next)=> {
 
     try {
         const [ rows ] = await pool.execute(
-            `SELECT users_id, first_name, last_name, email, status, password_hash FROM users WHERE email = ? AND status = 'active'`,
+            `SELECT users_id, first_name, last_name, email, status, password_hash, is_admin FROM users WHERE email = ? AND status = 'active'`,
             [email]
         )
 
@@ -83,7 +83,7 @@ exports.login = async (req, res, next)=> {
 
         // Generate jwt 
         const token = jwt.sign(
-            { users_id: user.users_id, email: user.email },
+            { users_id: user.users_id, email: user.email, is_admin: user.is_admin },
             process.env.JWT_SECRET,
             { expiresIn: '24h'}
         )
@@ -128,6 +128,7 @@ exports.getUserById = async (req, res, next) => {
                 status,
                 email_verified_at,
                 profile_image_url,
+                is_admin,
                 created_at,
                 updated_at
             FROM users
@@ -229,6 +230,7 @@ exports.getMe = async (req, res, next)=> {
                 status,
                 email_verified_at,
                 profile_image_url,
+                is_admin,
                 created_at,
                 updated_at
             FROM users
@@ -406,6 +408,24 @@ exports.getFollowing = async (req, res, next) => {
         res.status(200).json({
             count: rows.length,
             following: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.checkUserAlbum = async (req, res, next)=> {
+    const { id, album_id} = req.params 
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT user_album_id FROM user_albums
+            WHERE users_id = ? AND album_id = ?`,
+            [id, album_id]
+        )
+
+        res.status(200).json({
+            inCollection: rows.length > 0
         })
     } catch (err) {
         next(err)

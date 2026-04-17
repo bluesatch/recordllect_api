@@ -340,7 +340,7 @@ exports.getAlbumsByPerformer = async (req, res, next) => {
 
     try {
         const [countResult] = await pool.query(
-            `SELECT COUNT(*) AS total FROM albums WEHERE performer_id = ?`,
+            `SELECT COUNT(*) AS total FROM albums WHERE performer_id = ?`,
             [id]
         )
 
@@ -357,7 +357,7 @@ exports.getAlbumsByPerformer = async (req, res, next) => {
                 v.label_name,
                 v.format_name
             FROM albums a
-            JOIN v_albums_details v ON a.album_id = v.album_id
+            JOIN v_album_details v ON a.album_id = v.album_id
             WHERE a.performer_id = ?
             ORDER BY a.release_year ASC
             LIMIT ? OFFSET ?`,

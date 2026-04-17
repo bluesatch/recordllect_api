@@ -5,6 +5,7 @@ const userController = require('../../controllers/userControllers')
 // GET
 router.get('/me', auth, userController.getMe)
 router.get('/:id', auth, userController.getUserById)
+router.get('/:id/albums/:album_id', auth, userController.checkUserAlbum)
 router.get('/:id/albums', auth, userController.getUserAlbums)
 router.get('/:id/followers', auth, userController.getFollowers)
 router.get('/:id/following', auth, userController.getFollowing)
