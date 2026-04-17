@@ -1,9 +1,12 @@
 const router = require('express').Router()
 const performerController = require('../../controllers/performerController')
+const albumController = require('../../controllers/albumController')
 
 // GET
 router.get('/', performerController.getAllPerformers)
+router.get('/:id/albums', albumController.getAlbumsByPerformer)
 router.get('/:id', performerController.getPerformerById)
+
 
 // POST
 router.post('/', performerController.createPerformer)
