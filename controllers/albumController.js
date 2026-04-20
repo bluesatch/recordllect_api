@@ -86,6 +86,17 @@ exports.getAllAlbums = async (req, res, next) => {
     const search = req.query.search || ''
     const format = req.query.format || ''
     const genre = req.query.genre || ''
+    const sort = req.query.sort || 'title_asc'
+
+    const sortMap = {
+        'title_asc': 'a.title ASC',
+        'title_desc': 'a.title DESC',
+        'year_asc': 'a.release_year ASC',
+        'year_desc': 'a.release_year DESC'
+    }
+
+    const orderBy = sortMap[sort] || 'a.title ASC'
+
 
     try {
         // Updating to allow filtering...creating dynamic WHERE clause
@@ -163,7 +174,7 @@ exports.getAllAlbums = async (req, res, next) => {
                 v.performer_name,
                 v.label_name,
                 f.format_name
-            ORDER BY a.title ASC
+            ORDER BY ${orderBy}
             LIMIT ? OFFSET ?`,
             [...params, Number(limit), Number(offset)]
         )

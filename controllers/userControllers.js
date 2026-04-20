@@ -268,6 +268,18 @@ exports.getUserAlbums = async (req, res, next)=> {
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 60
     const offset = (page - 1) * limit
+    const sort = req.query.sort || 'added_desc'
+
+    const sortMap = {
+        'title_asc': 'a.title ASC',
+        'title_desc': 'a.title DESC',
+        'year_asc': 'a.release_year ASC',
+        'year_desc': 'a.release_year DESC',
+        'added_desc': 'ua.added_at DESC',
+        'added_asc': 'ua.added_at ASC'
+    }
+
+    const orderBy = sortMap[sort] || 'ua.added_at DESC'
 
     try {
         const [ countResult ] = await pool.execute(
@@ -294,7 +306,7 @@ exports.getUserAlbums = async (req, res, next)=> {
             JOIN albums a ON ua.album_id = a.album_id
             JOIN v_album_details v ON a.album_id = v.album_id
             WHERE ua.users_id = ?
-            ORDER BY ua.added_at DESC
+            ORDER BY ${orderBy}
             LIMIT ? OFFSET ?`,
             [Number(id), Number(limit), Number(offset)]
         )

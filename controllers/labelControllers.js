@@ -50,6 +50,16 @@ exports.getAllLabels = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 20
     const offset = (page - 1) * limit 
     const search = req.query.search || ''
+    const sort = req.query.sort || 'name_asc'
+
+    const sortMap = {
+        'name_asc': 'label_name ASC',
+        'name_desc': 'label_name DESC',
+        'year_asc': 'founded_year ASC',
+        'year_desc': 'founded_year DESC'
+    }
+
+    const orderBy = sortMap[sort] || 'label_name ASC'
 
 
     try {
@@ -85,7 +95,7 @@ exports.getAllLabels = async (req, res, next) => {
                 created_at
             FROM labels
             ${whereClause}
-            ORDER BY label_name ASC
+            ORDER BY ${orderBy}
             LIMIT ? OFFSET ?`,
             [...params, Number(limit), Number(offset)]
         )

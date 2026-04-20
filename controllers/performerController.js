@@ -93,6 +93,14 @@ exports.getAllPerformers = async (req, res, next)=> {
     const offset = (page - 1) * limit 
     const search = req.query.search || ''
     const type = req.query.type || ''
+    const sort = req.query.sort || 'name_asc'
+
+    const sortMap = {
+        'name_asc': 'performer_name ASC',
+        'name_desc': 'performer_name DESC'
+    }
+
+    const orderBy = sortMap[sort] || 'performer_name ASC'
 
     try {
 
@@ -146,7 +154,7 @@ exports.getAllPerformers = async (req, res, next)=> {
             LEFT JOIN artists ar ON p.performer_id = ar.performer_id
             LEFT JOIN bands b ON p.performer_id = b.performer_id
             ${whereClause}
-            ORDER by performer_name ASC
+            ORDER by ${orderBy}
             LIMIT ? OFFSET ?`,
             [...params, Number(limit), Number(offset)]
         )
