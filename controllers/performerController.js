@@ -236,6 +236,7 @@ exports.getPerformerById = async (req, res, next) => {
 exports.updatePerformer = async (req, res, next)=> {
     const { id } = req.params
     const {
+        performer_type,
         first_name,
         last_name,
         alias,
@@ -262,15 +263,69 @@ exports.updatePerformer = async (req, res, next)=> {
             return res.status(404).json({ message: 'Performer not found'})
         }
 
-        const { performer_type } = rows[0]
+        // const { performer_type } = rows[0]
+        const currType = rows[0].performer_type 
+        const newType = performer_type || currType
 
+        if (newType !== currType) {
+            await con.execute(
+                `UPDATE performers SET performer_type = ? WHERE performer_id = ?`,
+                [newType, id]
+            )
+
+            if (newType === 'band') {
+                // MOVING FROM artist to band 
+                // GET THE alias TO USE AS A band name 
+                const [artistRows] = await con.execute(
+                    `SELECT alias, first_name, last_name FROM artists WHERE performer_id = ?`,
+                [id]
+                )
+
+                const artist = artistRows[0]
+                const derivedBandName = band_name || `${artist?.first_name || ''} ${artist?.last_name || ''}`.trim() || 'Unknown'
+
+                // Insert into bands
+                await con.execute(
+                    `INSERT IGNORE INTO bands (performer_id, band_name, formed_year, disbanded_year, country)
+                    VALUES (?, ?, ?, ?, ?)`,
+                    [id, derivedBandName, formed_year || null, disbanded_year || null, country || null]
+                )
+
+                // Remove from artists 
+                await con.execute(
+                    `DELETE FROM artists WHERE performer_id = ?`,
+                    [id]
+                )
+            } else if (newType === 'artist') {
+                // Moving from band to artist 
+                // Get the band name to use as alias 
+                const [bandRows] = await con.execute(
+                    `SELECT band_name FROM bands WHERE performer_id = ?`,
+                    [id]
+                )
+
+                const derivedAlias = alias || bandRows[0]?.band_name || null 
+
+                // Insert into artists 
+                await con.execute(
+                    `INSERT IGNORE INTO artists (performer_id, alias, first_name, last_name) VALUES (?, ?, ?, ?)`,
+                    [id, derivedAlias, first_name || null, last_name || null]
+                )
+
+                // Remove from bands 
+                await con.execute(
+                    `DELETE FROM bands WHERE performer_id = ?`,
+                    [id]
+                )
+            }
+        } else {
         /**
          * COALESCE => ensures a clean PUT. 
          * 
          * "Use the new value if provided, otherwise keep the existing value"
          */
 
-        if (performer_type === 'artist') {
+        if (currType === 'artist') {
             await con.execute(
                 `UPDATE artists SET
                     first_name = COALESCE(?, first_name),
@@ -291,12 +346,13 @@ exports.updatePerformer = async (req, res, next)=> {
                 WHERE performer_id = ?`,
                 [band_name || null, formed_year || null, disbanded_year || null, country || null, id]
                 
-            )
+                )
+            }
         }
 
-        await con.commit()
+    await con.commit()
 
-        res.status(200).json({ message: 'Performer updated successfully' })
+    res.status(200).json({ message: 'Performer updated successfully' })
 
     } catch (err) {
         await con.rollback()
@@ -305,7 +361,7 @@ exports.updatePerformer = async (req, res, next)=> {
         con.release()
     }
 }
-
+        
 
 // DELETE PERFORMER
 exports.deletePerformer = async (req, res, next)=> {
