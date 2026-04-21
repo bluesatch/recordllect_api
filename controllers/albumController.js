@@ -348,6 +348,16 @@ exports.getAlbumsByPerformer = async (req, res, next) => {
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 20
     const offset = (page - 1) * limit 
+    const sort = req.query.sort || 'year_asc'
+
+    const sortMap = {
+        'title_asc': 'a.title ASC',
+        'title_desc': 'a.title DESC',
+        'year_asc': 'a.release_year ASC',
+        'year_desc': 'a.release_year DESC'
+    }
+
+    const orderBy = sortMap[sort] || 'a.release_year ASC'
 
     try {
         const [countResult] = await pool.query(
@@ -370,7 +380,7 @@ exports.getAlbumsByPerformer = async (req, res, next) => {
             FROM albums a
             JOIN v_album_details v ON a.album_id = v.album_id
             WHERE a.performer_id = ?
-            ORDER BY a.release_year ASC
+            ORDER BY ${orderBy}
             LIMIT ? OFFSET ?`,
             [id, Number(limit), Number(offset)]
         )
