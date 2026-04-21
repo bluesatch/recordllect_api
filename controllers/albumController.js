@@ -396,3 +396,60 @@ exports.getAlbumsByPerformer = async (req, res, next) => {
         next(err)
     }
 }
+
+// Get albums by label 
+exports.getAlbumsByLabel = async (req, res, next) => {
+    const { id } = req.params
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const offset = (page - 1) * limit 
+    const sort = req.query.sort || 'year_asc'
+
+    const sortMap = {
+        'title_asc': 'a.title ASC',
+        'title_desc': 'a.title DESC',
+        'year_asc': 'a.release_year ASC',
+        'year_desc': 'a.release_year DESC'
+    }
+
+    const orderBy = sortMap[sort] || 'a.release_year ASC'
+
+    try {
+        
+        const [countResult] = await pool.query(
+            `SELECT COUNT(*) AS total FROM albums WHERE label_id = ?`,
+            [id]
+        )
+
+        const total = countResult[0].total
+        const totalPages = Math.ceil(total / limit)
+
+        const [rows] = await pool.query(
+            `SELECT 
+                a.album_id,
+                a.performer_id,
+                a.title,
+                a.release_year,
+                a.album_image_url,
+                v.performer_name,
+                v.label_name,
+                v.format_name
+            FROM albums a 
+            JOIN v_album_details v ON a.album_id = v.album_id
+            WHERE a.label_id = ?
+            ORDER BY ${orderBy}
+            LIMIT ? OFFSET ?`,
+            [id, Number(limit), Number(offset)]
+        )
+
+        res.status(200).json({
+            count: rows.length,
+            total,
+            totalPages,
+            page,
+            albums: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
