@@ -152,6 +152,13 @@ exports.getUserById = async (req, res, next) => {
 
         const user = rows[0]
 
+        const [ albumCount ] = await pool.execute(
+            `SELECT COUNT(*) AS album_count FROM user_albums WHERE users_id = ?`,
+            [id]
+        )
+
+        user.album_count = albumCount[0].album_count
+
         // Fetch follower and following counts
         const [ followStats ] = await pool.execute(
                 `SELECT
