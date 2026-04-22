@@ -18,11 +18,17 @@ const validatePassword = (password)=> {
 
 // Register user
 exports.register = async (req, res, next)=> {
-    const { first_name, last_name, email, password } = req.body
+    const { first_name, last_name, email, username, password } = req.body
 
     // input validation
-    if (!first_name || !last_name || !email || !password) {
+    if (!first_name || !last_name || !email || !username || !password) {
         return res.status(400).json({ message: 'All fields are required' })
+    }
+
+    if (!/^[a-zA-Z0-9_]{3,50}$/.test(username)) {
+        return res.status(400).json({ 
+            message: 'Username must be 3-50 characters and can only contain letters, numbers, and underscores' 
+        })
     }
 
     const passwordErrors = validatePassword(password)
@@ -38,16 +44,19 @@ exports.register = async (req, res, next)=> {
         const password_hash = await bcrypt.hash(password, 10)
 
         const [ result ] = await pool.execute(
-            `INSERT INTO users (first_name, last_name, email, password_hash)
-            VALUES (?, ?, ?, ?)`,
-            [ first_name, last_name, email, password_hash ]
+            `INSERT INTO users (first_name, last_name, email, username, password_hash)
+            VALUES (?, ?, ?, ?, ?)`,
+            [ first_name, last_name, email, username, password_hash ]
         )
 
         res.status(201).json({ message: 'User registered successfully', users_id: result.insertId})
     } catch (err) {
         // Handle duplicate email
         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: 'Email already in use' })
+            const message = err.message.inlcudes('username') 
+            ? 'Username already taken'
+            : 'Email already in use'
+            return res.status(409).json({ message })
         }
         next(err)
     }
@@ -65,7 +74,7 @@ exports.login = async (req, res, next)=> {
 
     try {
         const [ rows ] = await pool.execute(
-            `SELECT users_id, first_name, last_name, email, status, password_hash, is_admin FROM users WHERE email = ? AND status = 'active'`,
+            `SELECT users_id, first_name, last_name, email, status, username, password_hash, is_admin FROM users WHERE email = ? AND status = 'active'`,
             [email]
         )
 
@@ -83,7 +92,7 @@ exports.login = async (req, res, next)=> {
 
         // Generate jwt 
         const token = jwt.sign(
-            { users_id: user.users_id, email: user.email, is_admin: user.is_admin },
+            { users_id: user.users_id, email: user.email, username: user.username, is_admin: user.is_admin },
             process.env.JWT_SECRET,
             { expiresIn: '24h'}
         )
@@ -119,6 +128,7 @@ exports.getUserById = async (req, res, next) => {
                 first_name,
                 last_name,
                 email,
+                username,
                 address_line_1,
                 address_line_2,
                 city,
@@ -164,6 +174,7 @@ exports.getUserById = async (req, res, next) => {
 exports.updateUser = async (req, res, next) => {
     const { id } = req.params
     const {
+        username,
         first_name,
         last_name,
         address_line_1,
@@ -178,6 +189,7 @@ exports.updateUser = async (req, res, next) => {
     try {
         const [result] = await pool.execute(
             `UPDATE users SET
+                username = COALESCE(?, username),
                 first_name = COALESCE(?, first_name),
                 last_name = COALESCE(?, last_name),
                 address_line_1 = COALESCE(?, address_line_1),
@@ -189,6 +201,7 @@ exports.updateUser = async (req, res, next) => {
                 profile_image_url = COALESCE(?, profile_image_url)
             WHERE users_id = ?`,
             [
+                username || null,
                 first_name || null,
                 last_name || null,
                 address_line_1 || null,
@@ -201,6 +214,14 @@ exports.updateUser = async (req, res, next) => {
                 id
             ]
         )
+
+        // Handle duplicate username or email 
+        if (err.code === 'ER_DUP_ENTRY') {
+            const message = err.message.includes('username')
+                ? 'Username already taken'
+                : 'Email already in use'
+            return res.status(409).json({ message })
+        }
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'User not found' })
@@ -221,6 +242,7 @@ exports.getMe = async (req, res, next)=> {
                 first_name,
                 last_name,
                 email,
+                username,
                 address_line_1,
                 address_line_2,
                 city,
@@ -382,6 +404,7 @@ exports.getFollowers = async (req, res, next) => {
                 u.users_id,
                 u.first_name,
                 u.last_name,
+                u.username,
                 u.profile_image_url
             FROM follows f
             JOIN users u ON f.follower_id = u.users_id
@@ -409,6 +432,7 @@ exports.getFollowing = async (req, res, next) => {
                 u.users_id,
                 u.first_name,
                 u.last_name,
+                u.username,
                 u.profile_image_url
             FROM follows f
             JOIN users u ON f.following_id = u.users_id
@@ -439,6 +463,97 @@ exports.checkUserAlbum = async (req, res, next)=> {
         res.status(200).json({
             inCollection: rows.length > 0
         })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// SEARCH USERS
+exports.searchUsers = async (req, res, next)=> {
+    const search = req.query.search || ''
+    const { id } = req.query 
+
+    try {
+        const [ rows ] = await pool.query(
+            `SELECT 
+                users_id,
+                username,
+                first_name,
+                last_name,
+                profile_image_url
+            FROM users 
+            WHERE username LIKE ?
+            AND status = 'active'
+            AND users_id != ?
+            ORDER BY username ASC
+            LIMIT 10`,
+            [`%${search}%`, id || 0]
+        )
+
+        res.status(200).json({ users: rows })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// FOLLOW A USER 
+exports.followUser = async (req, res, next)=> {
+    const { id } = req.params
+    const follower_id = req.user.users_id 
+
+    if (parseInt(id) === follower_id) {
+        return res.status(400).json({ message: "I know you're awesome. But you cannot follow yourself."})
+    }
+
+    try {
+        await pool.execute(
+            `INSERT INTO follows (follower_id, following_id) VALUES (?, ?)`,
+            [follower_id, id]
+        )
+
+        res.status(201).json({ message: 'User followed successfully'})
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Already following this user' })
+        }
+        next(err)
+    } 
+}
+
+// UNFOLLOW A USER 
+exports.unfollowUser = async (req, res, next)=> {
+    const { id } = req.params 
+    const follower_id = req.user.users_id
+
+    try {
+        const [ result ] = await pool.execute(
+            `DELETE FROM follows
+            WHERE follower_id = ? AND following_id = ?`,
+            [follower_id, id]
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Not following this user'})
+        }
+
+        res.status(200).json({ message: 'User unfollowed successfully'})
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.checkFollowing = async (req, res, next)=> {
+    const { id } = req.params 
+    const follower_id = req.user.users_id
+
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT follow_id FROM follows
+            WHERE follower_id = ? AND following_id = ?`,
+            [follower_id, id]
+        )
+
+        res.status(200).json({ isFollowing: rows.length > 0 })
     } catch (err) {
         next(err)
     }
