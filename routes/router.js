@@ -11,7 +11,8 @@ router.get('/', (req, res)=> {
         'bands': `http://${process.env.API_HOST}:${PORT}/api/bands`,
         'genres': `http://${process.env.API_HOST}:${PORT}/api/genres`,
         'labels': `http://${process.env.API_HOST}:${PORT}/api/labels`,
-        'formats': `http://${process.env.API_HOST}:${PORT}/api/formats`
+        'formats': `http://${process.env.API_HOST}:${PORT}/api/formats`,
+        // 'topEight': `http://${process.env.API_HOST}:${PORT}/api/top-eight`
     })
 })
 
@@ -22,6 +23,10 @@ const endpoints = [
 endpoints.forEach(endpoint => {
     router.use(`/${endpoint}`, require(`./api/${endpoint}Routes`))
 })
+
+// Register topEight routes 
+const topEightRoutes = require('./api/topEightRoutes')
+router.use('/users', topEightRoutes)
 
 // router.use('/users', require('./api/usersRoutes'))
 // router.use('/performers', require('./api/performersRoutes'))
