@@ -92,7 +92,9 @@ exports.getAllAlbums = async (req, res, next) => {
         'title_asc': 'a.title ASC',
         'title_desc': 'a.title DESC',
         'year_asc': 'a.release_year ASC',
-        'year_desc': 'a.release_year DESC'
+        'year_desc': 'a.release_year DESC',
+        'performer_desc': 'v.performer_name DESC',
+        'performer_asc': 'v.performer_name ASC'
     }
 
     const orderBy = sortMap[sort] || 'a.title ASC'

@@ -53,7 +53,7 @@ exports.register = async (req, res, next)=> {
     } catch (err) {
         // Handle duplicate email
         if (err.code === 'ER_DUP_ENTRY') {
-            const message = err.message.inlcudes('username') 
+            const message = err.message.includes('username') 
             ? 'Username already taken'
             : 'Email already in use'
             return res.status(409).json({ message })
@@ -221,6 +221,8 @@ exports.updateUser = async (req, res, next) => {
                 id
             ]
         )
+        res.status(200).json({ message: 'User updated successfully' })
+    } catch (err) {
 
         // Handle duplicate username or email 
         if (err.code === 'ER_DUP_ENTRY') {
@@ -233,10 +235,8 @@ exports.updateUser = async (req, res, next) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'User not found' })
         }
-
-        res.status(200).json({ message: 'User updated successfully' })
-    } catch (err) {
         next(err)
+
     }
 }
 
