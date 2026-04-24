@@ -129,6 +129,7 @@ exports.getUserById = async (req, res, next) => {
                 first_name,
                 last_name,
                 email,
+                bio,
                 username,
                 address_line_1,
                 address_line_2,
@@ -198,7 +199,8 @@ exports.updateUser = async (req, res, next) => {
         state,
         postal_code,
         country,
-        profile_image_url
+        profile_image_url,
+        bio
     } = req.body
 
     try {
@@ -213,7 +215,8 @@ exports.updateUser = async (req, res, next) => {
                 state = COALESCE(?, state),
                 postal_code = COALESCE(?, postal_code),
                 country = COALESCE(?, country),
-                profile_image_url = COALESCE(?, profile_image_url)
+                profile_image_url = COALESCE(?, profile_image_url),
+                bio = COALESCE(?, bio)
             WHERE users_id = ?`,
             [
                 username || null,
@@ -226,6 +229,7 @@ exports.updateUser = async (req, res, next) => {
                 postal_code || null,
                 country || null,
                 profile_image_url || null,
+                bio || null,
                 id
             ]
         )
@@ -257,6 +261,7 @@ exports.getMe = async (req, res, next)=> {
                 first_name,
                 last_name,
                 email,
+                bio,
                 username,
                 address_line_1,
                 address_line_2,

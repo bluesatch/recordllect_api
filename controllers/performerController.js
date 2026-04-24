@@ -144,6 +144,7 @@ exports.getAllPerformers = async (req, res, next)=> {
                 p.performer_id,
                 p.performer_type,
                 COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name,
+                COALESCE(ar.profile_image_url, b.profile_image_url) AS profile_image_url,
                 ar.date_of_birth,
                 ar.date_of_death,
                 b.formed_year,
@@ -184,10 +185,14 @@ exports.getPerformerById = async (req, res, next) => {
                 ar.alias,
                 ar.date_of_birth,
                 ar.date_of_death,
+                ar.bio AS artist_bio,
+                ar.profile_image_url AS artist_image,
                 b.band_name,
                 b.formed_year,
                 b.disbanded_year,
                 b.country,
+                b.bio AS band_bio,
+                b.profile_image_url AS band_image,
                 p.created_at
             FROM performers p
             LEFT JOIN artists ar ON p.performer_id = ar.performer_id
@@ -201,6 +206,21 @@ exports.getPerformerById = async (req, res, next) => {
         }
 
         const performer = rows[0]
+
+        // Normalize bio and profile_image_url based on type
+        performer.bio = performer.performer_type === 'artist'
+            ? performer.artist_bio
+            : performer.band_bio
+
+        performer.profile_image_url === performer.performer_type === 'artist'
+            ? performer.artist_image 
+            : performer.band_image
+
+        // Clean up aliases
+        delete performer.artist_bio 
+        delete performer.band_bio 
+        delete performer.artist_image 
+        delete performer.band_image 
 
         // If artist, also fetch their instruments
         if (performer.performer_type === 'artist') {
@@ -253,7 +273,9 @@ exports.updatePerformer = async (req, res, next)=> {
         band_name,
         formed_year,
         disbanded_year,
-        country
+        country,
+        bio,
+        profile_image_url
     } = req.body
 
     const con = await pool.getConnection()
@@ -340,9 +362,11 @@ exports.updatePerformer = async (req, res, next)=> {
                     last_name = COALESCE(?, last_name),
                     alias = COALESCE(?, alias),
                     date_of_birth = COALESCE(?, date_of_birth),
-                    date_of_death = COALESCE(?, date_of_death)
+                    date_of_death = COALESCE(?, date_of_death),
+                    bio = COALESCE(?, bio),
+                    profile_image_url = COALESCE(?, profile_image_url)
                 WHERE performer_id = ?`,
-                [first_name || null, last_name || null, alias || null, date_of_birth || null, date_of_death || null, id]
+                [first_name || null, last_name || null, alias || null, date_of_birth || null, date_of_death || null, bio || null, profile_image_url || null, id]
             )
         } else {
             await con.execute(
@@ -350,9 +374,11 @@ exports.updatePerformer = async (req, res, next)=> {
                     band_name = COALESCE(?, band_name),
                     formed_year = COALESCE(?, formed_year),
                     disbanded_year = COALESCE(?, disbanded_year),
-                    country = COALESCE(?, country)
+                    country = COALESCE(?, country),
+                    bio = COALESCE(?, bio),
+                    profile_image_url = COALESCE(?, profile_image_url)
                 WHERE performer_id = ?`,
-                [band_name || null, formed_year || null, disbanded_year || null, country || null, id]
+                [band_name || null, formed_year || null, disbanded_year || null, country || null, bio || null, profile_image_url || null, id]
                 
                 )
             }
