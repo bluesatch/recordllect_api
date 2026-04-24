@@ -118,6 +118,7 @@ exports.logout = (req, res)=> {
     res.json({ message: 'Logged out successfully'})
 }
 
+// GET userById
 exports.getUserById = async (req, res, next) => {
     const { id } = req.params
 
@@ -158,6 +159,13 @@ exports.getUserById = async (req, res, next) => {
         )
 
         user.album_count = albumCount[0].album_count
+
+        const [ wantlistCount ] = await pool.execute(
+            `SELECT COUNT(*) AS wantlist_count FROM wantlists WHERE users_id = ?`,
+            [id]
+        )
+
+        user.wantlist_count = wantlistCount[0].wantlist_count
 
         // Fetch follower and following counts
         const [ followStats ] = await pool.execute(

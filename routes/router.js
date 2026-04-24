@@ -11,8 +11,7 @@ router.get('/', (req, res)=> {
         'bands': `http://${process.env.API_HOST}:${PORT}/api/bands`,
         'genres': `http://${process.env.API_HOST}:${PORT}/api/genres`,
         'labels': `http://${process.env.API_HOST}:${PORT}/api/labels`,
-        'formats': `http://${process.env.API_HOST}:${PORT}/api/formats`,
-        // 'topEight': `http://${process.env.API_HOST}:${PORT}/api/top-eight`
+        'formats': `http://${process.env.API_HOST}:${PORT}/api/formats`
     })
 })
 
@@ -28,10 +27,9 @@ endpoints.forEach(endpoint => {
 const topEightRoutes = require('./api/topEightRoutes')
 router.use('/users', topEightRoutes)
 
-// router.use('/users', require('./api/usersRoutes'))
-// router.use('/performers', require('./api/performersRoutes'))
-// router.use('/albums', require('./api/albumsRoutes'))
-// router.use('/labels', require('./api/labelsRoutes'))
+//  Wantlist routes
+const wantlistRoutes = require('./api/wantlistRoutes')
+router.use('/users', wantlistRoutes)
 
 
 /** ERROR HANDLING **/
