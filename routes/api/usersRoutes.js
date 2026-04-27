@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const auth = require('../../middleware/auth')
 const userController = require('../../controllers/userControllers')
+const postController = require('../../controllers/postController')
 
 // GET
 router.get('/search', auth, userController.searchUsers)
@@ -10,6 +11,7 @@ router.get('/:id/albums', auth, userController.getUserAlbums)
 router.get('/:id/followers', auth, userController.getFollowers)
 router.get('/:id/following/check', auth, userController.checkFollowing)
 router.get('/:id/following', auth, userController.getFollowing)
+router.get('/:id/posts', auth, postController.getUserPosts)
 router.get('/:id', auth, userController.getUserById)
 
 // POST

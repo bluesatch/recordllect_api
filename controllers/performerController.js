@@ -212,8 +212,8 @@ exports.getPerformerById = async (req, res, next) => {
             ? performer.artist_bio
             : performer.band_bio
 
-        performer.profile_image_url === performer.performer_type === 'artist'
-            ? performer.artist_image 
+        performer.profile_image_url = performer.performer_type === 'artist'
+            ? performer.artist_image
             : performer.band_image
 
         // Clean up aliases

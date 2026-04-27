@@ -16,7 +16,7 @@ router.get('/', (req, res)=> {
 })
 
 const endpoints = [
-    'users', 'artists', 'albums', 'performers', 'bands', 'genres', 'labels', 'formats'
+    'users', 'artists', 'albums', 'performers', 'bands', 'genres', 'labels', 'formats', 'tags'
 ]
 
 endpoints.forEach(endpoint => {
@@ -30,6 +30,15 @@ router.use('/users', topEightRoutes)
 //  Wantlist routes
 const wantlistRoutes = require('./api/wantlistRoutes')
 router.use('/users', wantlistRoutes)
+
+const postRoutes = require('./api/postsRoutes')
+const commentsRoutes = require('./api/commentsRoutes')
+const repliesRoutes = require('./api/repliesRoutes')
+
+router.use('/posts', postRoutes)
+router.use('/comments', commentsRoutes)
+router.use('/replies', repliesRoutes)
+
 
 
 /** ERROR HANDLING **/
