@@ -179,6 +179,17 @@ exports.getUserById = async (req, res, next) => {
         user.followers_count = followStats[0].followers_count
         user.following_count = followStats[0].following_count
 
+        const [ userGenres ] = await pool.execute(
+            `SELECT g.genre_id, g.genre_name
+            FROM user_genres ug
+            JOIN genres g ON ug.genre_id = g.genre_id
+            WHERE ug.users_id = ?
+            ORDER BY g.genre_name ASC`,
+            [id]
+        )
+
+        user.genres = userGenres
+
         res.status(200).json(user)
     } catch (err) {
         next(err)
@@ -200,28 +211,35 @@ exports.updateUser = async (req, res, next) => {
         postal_code,
         country,
         profile_image_url,
-        bio
+        bio,
+        genre_ids
     } = req.body
 
+    const con = await pool.getConnection()
+
     try {
-        const [result] = await pool.execute(
+
+        await con.beginTransaction()
+
+        const [result] = await con.execute(
             `UPDATE users SET
                 username = COALESCE(?, username),
                 first_name = COALESCE(?, first_name),
                 last_name = COALESCE(?, last_name),
+                bio = COALESCE(?, bio),
                 address_line_1 = COALESCE(?, address_line_1),
                 address_line_2 = COALESCE(?, address_line_2),
                 city = COALESCE(?, city),
                 state = COALESCE(?, state),
                 postal_code = COALESCE(?, postal_code),
                 country = COALESCE(?, country),
-                profile_image_url = COALESCE(?, profile_image_url),
-                bio = COALESCE(?, bio)
+                profile_image_url = COALESCE(?, profile_image_url)
             WHERE users_id = ?`,
             [
                 username || null,
                 first_name || null,
                 last_name || null,
+                bio || null,
                 address_line_1 || null,
                 address_line_2 || null,
                 city || null,
@@ -229,13 +247,36 @@ exports.updateUser = async (req, res, next) => {
                 postal_code || null,
                 country || null,
                 profile_image_url || null,
-                bio || null,
                 id
             ]
         )
+
+        if (result.affectedRows === 0) {
+            await con.rollback()
+            return res.status(400).json({ message: 'User not found'})
+        }
+
+        // Update genre preferences if provided 
+        if (genre_ids && Array.isArray(genre_ids)) {
+            await con.execute(
+                `DELETE FROM user_genres WHERE users_id = ?`,
+                [id]
+            )
+
+            if (genre_ids.length > 0) {
+                const genreValues = genre_ids.map(genre_id => [id, genre_id])
+                await con.query(
+                    `INSERT INTO user_genres (users_id, genre_id) VALUES ?`,
+                    [genreValues]
+                )
+            }
+        }
+
+        await con.commit()
+
         res.status(200).json({ message: 'User updated successfully' })
     } catch (err) {
-
+        await con.rollback()
         // Handle duplicate username or email 
         if (err.code === 'ER_DUP_ENTRY') {
             const message = err.message.includes('username')
@@ -244,11 +285,9 @@ exports.updateUser = async (req, res, next) => {
             return res.status(409).json({ message })
         }
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'User not found' })
-        }
         next(err)
-
+    } finally {
+        con.release()
     }
 }
 
@@ -295,6 +334,17 @@ exports.getMe = async (req, res, next)=> {
 
         user.followers_count = followStats[0].followers_count
         user.following_count = followStats[0].following_count
+
+        const [ userGenres ] = await pool.execute(
+            `SELECT g.genre_id, g.genre_name
+            FROM user_genres ug
+            JOIN genres g ON ug.genre_id = g.genre_id
+            WHERE ug.users_id = ?
+            ORDER BY g.genre_name ASC`,
+            [req.user.users_id]
+        )
+
+        user.genres = userGenres
 
         res.status(200).json(user)
 
@@ -491,23 +541,96 @@ exports.checkUserAlbum = async (req, res, next)=> {
 // SEARCH USERS
 exports.searchUsers = async (req, res, next)=> {
     const search = req.query.search || ''
-    const { id } = req.query 
+    const city = req.query.city || ''
+    const state = req.query.state || ''
+    const country = req.query.country || ''
+    const genres = req.query.genres ? req.query.genres.split(',').map(Number) : []
+    const requesterId = req.user.users_id 
 
     try {
+
+        const conditions = []
+        const params = []
+        
+        // Exclude self 
+        conditions.push(`u.users_id != ?`)
+        params.push(requesterId)
+
+        // Exclude already followed users
+        conditions.push(`u.users_id NOT IN (
+            SELECT following_id FROM follows WHERE follower_id = ?
+        )`)
+
+        params.push(requesterId)
+
+        // Active users only
+        conditions.push(`u.status = 'active'`)
+
+        // Search by username 
+        if (search) {
+            conditions.push(`u.username LIKE ?`)
+            params.push(`%${search}%`)
+        }
+
+        // Filter by city 
+        if (city) {
+            conditions.push(`u.city LIKE ?`)
+            params.push(`%${city}%`)
+        }
+
+        // Filter by state 
+        if (state) {
+            conditions.push(`u.state LIKE ?`)
+            params.push(`%${state}%`)
+        }
+
+        // Filter by country 
+        if (country) {
+            conditions.push(`u.country LIKE ?`)
+            params.push(`%${country}%`)
+        }
+
+        // Filter by genres - user must have ALL selected genres 
+        if (genres.length > 0) {
+            conditions.push(`(
+                SELECT COUNT(*) FROM user_genres ug 
+                WHERE ug.users_id = u.users_id 
+                AND ug.genre_id IN (${genres.map(() => '?').join(',')})
+            ) = ?`)
+            params.push(...genres, genres.length)
+        }
+
+        const whereClause = `WHERE ${conditions.join(' AND ')}`
+
         const [ rows ] = await pool.query(
             `SELECT 
-                users_id,
-                username,
-                first_name,
-                last_name,
-                profile_image_url
-            FROM users 
-            WHERE username LIKE ?
-            AND status = 'active'
-            AND users_id != ?
-            ORDER BY username ASC
-            LIMIT 10`,
-            [`%${search}%`, id || 0]
+                u.users_id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.city,
+                u.state,
+                u.country,
+                u.bio,
+                u.profile_image_url,
+                GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
+            FROM users u
+            LEFT JOIN user_genres ug ON u.users_id = ug.users_id 
+            LEFT JOIN genres g ON ug.genre_id = g.genre_id 
+            ${whereClause}
+            GROUP BY 
+                u.users_id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.city,
+                u.state,
+                u.country,
+                u.bio,
+                u.profile_image_url
+            ORDER BY u.username ASC 
+            LIMIT 20`,
+            params
         )
 
         res.status(200).json({ users: rows })
@@ -578,3 +701,4 @@ exports.checkFollowing = async (req, res, next)=> {
         next(err)
     }
 }
+

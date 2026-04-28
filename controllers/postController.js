@@ -46,8 +46,10 @@ exports.getFeed = async (req, res, next)=> {
             FROM posts p 
             WHERE p.users_id IN (
                 SELECT following_id FROM follows WHERE follower_id = ?
+                UNION
+                SELECT ?
             )`,
-            [userId]
+            [userId, userId]
         )
 
         const total = countResult[0].total 
@@ -74,6 +76,8 @@ exports.getFeed = async (req, res, next)=> {
             LEFT JOIN comments c ON p.post_id = c.post_id 
             WHERE p.users_id IN (
                 SELECT following_id FROM follows WHERE follower_id = ?
+                UNION
+                SELECT ?
             )
             GROUP BY 
                 p.post_id,
@@ -88,7 +92,7 @@ exports.getFeed = async (req, res, next)=> {
                 u.profile_image_url
             ORDER BY p.created_at DESC 
             LIMIT ? OFFSET ?`,
-            [userId, userId, Number(limit), Number(offset)]
+            [userId, userId, userId, Number(limit), Number(offset)]
         )
 
         // Fetch tags for each post 
