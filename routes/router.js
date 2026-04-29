@@ -39,6 +39,12 @@ router.use('/posts', postRoutes)
 router.use('/comments', commentsRoutes)
 router.use('/replies', repliesRoutes)
 
+const ratingsRoutes = require('./api/ratingRoutes')
+const reviewsRoutes = require('./api/reviewsRoutes')
+
+router.use('/albums', ratingsRoutes)
+router.use('/reviews', reviewsRoutes)
+
 
 
 /** ERROR HANDLING **/
