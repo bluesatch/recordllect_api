@@ -23,9 +23,11 @@ router.post('/:id/follow', auth, userController.followUser)
 
 // PUT
 router.put('/:id', auth, userController.updateUser)
+router.put('/:id/now-playing', auth, userController.setNowPlaying)
 
 // DELETE
 router.delete('/:id/albums/:album_id', auth, userController.removeUserAlbum)
 router.delete('/:id/follow', auth, userController.unfollowUser)
+router.delete('/:id/now-playing', auth, userController.clearNowPlaying)
 
 module.exports = router

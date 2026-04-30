@@ -190,6 +190,20 @@ exports.getUserById = async (req, res, next) => {
 
         user.genres = userGenres
 
+        const [ nowPlaying ] = await pool.execute(
+            `SELECT 
+                np.album_id,
+                a.title,
+                v.performer_name
+            FROM now_playing np
+            JOIN albums a ON np.album_id = a.album_id
+            JOIN v_album_details v ON a.album_id = v.album_id
+            WHERE np.users_id = ?`,
+            [id]
+        )
+
+        user.now_playing = nowPlaying[0] || null
+
         res.status(200).json(user)
     } catch (err) {
         next(err)
@@ -345,6 +359,20 @@ exports.getMe = async (req, res, next)=> {
         )
 
         user.genres = userGenres
+
+        const [ nowPlaying ] = await pool.execute(
+            `SELECT
+                np.album_id,
+                a.title,
+                v.performer_name
+            FROM now_playing np
+            JOIN albums a ON np.album_id = a.album_id
+            JOIN v_album_details v ON a.album_id = v.album_id
+            WHERE np.users_id = ?`,
+            [req.user.users_id]
+        )
+
+        user.now_playing = nowPlaying[0] || null
 
         res.status(200).json(user)
 
@@ -702,3 +730,41 @@ exports.checkFollowing = async (req, res, next)=> {
     }
 }
 
+// SET now playing
+exports.setNowPlaying = async (req, res, next) => {
+    const { id } = req.params
+    const { album_id } = req.body
+
+    if (!album_id) {
+        return res.status(400).json({ message: 'album_id is required' })
+    }
+
+    try {
+        await pool.execute(
+            `INSERT INTO now_playing (users_id, album_id)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE album_id = ?, updated_at = CURRENT_TIMESTAMP`,
+            [id, album_id, album_id]
+        )
+
+        res.status(200).json({ message: 'Now playing updated' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// CLEAR now playing
+exports.clearNowPlaying = async (req, res, next) => {
+    const { id } = req.params
+
+    try {
+        await pool.execute(
+            `DELETE FROM now_playing WHERE users_id = ?`,
+            [id]
+        )
+
+        res.status(200).json({ message: 'Now playing cleared' })
+    } catch (err) {
+        next(err)
+    }
+}
