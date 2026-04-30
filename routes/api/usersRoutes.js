@@ -5,7 +5,9 @@ const postController = require('../../controllers/postController')
 
 // GET
 router.get('/search', auth, userController.searchUsers)
+router.get('/blocked', auth, userController.getBlockedUsers)
 router.get('/me', auth, userController.getMe)
+router.get('/:id/block/check', auth, userController.checkBlocked)
 router.get('/:id/albums/:album_id', auth, userController.checkUserAlbum)
 router.get('/:id/albums', auth, userController.getUserAlbums)
 router.get('/:id/followers', auth, userController.getFollowers)
@@ -20,6 +22,7 @@ router.post('/login', userController.login)
 router.post('/logout', userController.logout)
 router.post('/:id/albums', auth, userController.addUserAlbum)
 router.post('/:id/follow', auth, userController.followUser)
+router.post('/:id/block', auth, userController.blockUser)
 
 // PUT
 router.put('/:id', auth, userController.updateUser)
@@ -29,5 +32,6 @@ router.put('/:id/now-playing', auth, userController.setNowPlaying)
 router.delete('/:id/albums/:album_id', auth, userController.removeUserAlbum)
 router.delete('/:id/follow', auth, userController.unfollowUser)
 router.delete('/:id/now-playing', auth, userController.clearNowPlaying)
+router.delete('/:id/block', auth, userController.unblockUser)
 
 module.exports = router

@@ -48,8 +48,13 @@ exports.getFeed = async (req, res, next)=> {
                 SELECT following_id FROM follows WHERE follower_id = ?
                 UNION
                 SELECT ?
+            )
+            AND p.users_id NOT IN (
+                SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                UNION
+                SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
             )`,
-            [userId, userId]
+            [userId, userId, userId, userId]
         )
 
         const total = countResult[0].total 
@@ -79,6 +84,11 @@ exports.getFeed = async (req, res, next)=> {
                 UNION
                 SELECT ?
             )
+            AND p.users_id NOT IN (
+                SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                UNION 
+                SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+            )
             GROUP BY 
                 p.post_id,
                 p.body,
@@ -92,7 +102,7 @@ exports.getFeed = async (req, res, next)=> {
                 u.profile_image_url
             ORDER BY p.created_at DESC 
             LIMIT ? OFFSET ?`,
-            [userId, userId, userId, Number(limit), Number(offset)]
+            [userId, userId, userId, userId, userId, Number(limit), Number(offset)]
         )
 
         // Fetch tags for each post 

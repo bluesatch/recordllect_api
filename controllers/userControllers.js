@@ -121,8 +121,26 @@ exports.logout = (req, res)=> {
 // GET userById
 exports.getUserById = async (req, res, next) => {
     const { id } = req.params
+    const requesterId = req.user.users_id
 
     try {
+        // Check if either user has blocked the other 
+        if (parseInt(id) !== requesterId) {
+            const [blockCheck] = await pool.execute(
+                `SELECT block_id FROM blocked_users
+                WHERE (blocker_id = ? AND blocked_id = ?)
+                OR (blocker_id = ? AND blocked_id = ?)`,
+                [requesterId, id, id, requesterId]
+            )
+
+            if (blockCheck.length > 0) {
+                return res.status(403).json({
+                    message: 'Profile not available',
+                    blocked: true
+                })
+            }
+        }
+
         const [ rows ] = await pool.execute(
             `SELECT
                 users_id,
@@ -573,6 +591,7 @@ exports.searchUsers = async (req, res, next)=> {
     const state = req.query.state || ''
     const country = req.query.country || ''
     const genres = req.query.genres ? req.query.genres.split(',').map(Number) : []
+    const context = req.query.context || 'discover'
     const requesterId = req.user.users_id 
 
     try {
@@ -584,12 +603,19 @@ exports.searchUsers = async (req, res, next)=> {
         conditions.push(`u.users_id != ?`)
         params.push(requesterId)
 
-        // Exclude already followed users
         conditions.push(`u.users_id NOT IN (
-            SELECT following_id FROM follows WHERE follower_id = ?
+            SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+            UNION
+            SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
         )`)
+        params.push(requesterId, requesterId)
 
-        params.push(requesterId)
+        if (context === 'discover') {
+            conditions.push(`u.users_id NOT IN (
+                SELECT following_id FROM follows WHERE follower_id = ?
+            )`)
+            params.push(requesterId)
+        }
 
         // Active users only
         conditions.push(`u.status = 'active'`)
@@ -627,6 +653,8 @@ exports.searchUsers = async (req, res, next)=> {
             ) = ?`)
             params.push(...genres, genres.length)
         }
+
+        
 
         const whereClause = `WHERE ${conditions.join(' AND ')}`
 
@@ -764,6 +792,124 @@ exports.clearNowPlaying = async (req, res, next) => {
         )
 
         res.status(200).json({ message: 'Now playing cleared' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// BLOCK A USER 
+exports.blockUser = async (req, res, next)=> {
+    const { id } = req.params 
+    const blockerId = req.user.users_id 
+
+    if (parseInt(id) === blockerId) {
+        return res.status(400).json({ message: "You cannot block yourself" })
+    }
+
+    const con = await pool.getConnection()
+
+    try {
+        await con.beginTransaction()
+
+        // INSERT BLOCK
+        await con.execute(
+            `INSERT INTO blocked_users (blocker_id, blocked_id)
+            VALUES (?, ?)`,
+            [blockerId, id]
+        )
+
+        // UNFOLLOW EACH OTHER IF FOLLOWING 
+        await con.execute(
+            `DELETE FROM follows 
+            WHERE (follower_id = ? AND following_id = ?)
+            OR (follower_id = ? AND following_id = ?)`,
+            [blockerId, id, id, blockerId]
+        )
+
+        await con.commit()
+        res.status(201).json({ message: 'User blocked successfully'})
+    } catch (err) {
+        await con.rollback()
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Already blocked this user' })
+        }
+        next(err)
+    } finally {
+        con.release()
+    }
+}
+
+// UNBLOCK A USER 
+exports.unblockUser = async (req, res, next)=> {
+    const { id } = req.params
+    const blockerId = req.user.users_id 
+
+    try {
+        const [ result ] = await pool.execute(
+            `DELETE FROM blocked_users 
+            WHERE blocker_id = ? AND blocked_id = ?`,
+            [blockerId, id]
+        ) 
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Block not found'})
+        }
+
+        res.status(200).json({ message: 'User unblocked successfully' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// GET blocked users list 
+exports.getBlockedUsers = async (req, res, next)=> {
+    const userId = req.user.users_id 
+
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT 
+                u.users_id,
+                u.username,
+                u.profile_image_url,
+                bu.created_at AS blocked_at
+            FROM blocked_users bu
+            JOIN users u ON bu.blocked_id = u.users_id
+            WHERE bu.blocker_id = ?
+            ORDER BY bu.created_at DESC`,
+            [userId]
+        )
+
+        res.status(200).json({ 
+            count: rows.length,
+            blocked_users: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// CHECK if a user is blocked 
+exports.checkBlocked = async (req, res, next)=> {
+    const { id } = req.params 
+    const userId = req.user.users_id 
+
+    try {
+        const [ blockedByMe ] = await pool.execute(
+            `SELECT block_id FROM blocked_users
+            WHERE blocker_id = ? AND blocked_id = ?`,
+            [userId, id]
+        )
+
+        const [ blockedByThem ] = await pool.execute(
+            `SELECT block_id FROM blocked_users
+            WHERE blocker_id = ? AND blocked_id = ?`,
+            [id, userId]
+        )
+
+        res.status(200).json({
+            blocked_by_me: blockedByMe.length > 0,
+            blocked_by_them: blockedByThem.length > 0
+        })
     } catch (err) {
         next(err)
     }
