@@ -45,7 +45,14 @@ const reviewsRoutes = require('./api/reviewsRoutes')
 router.use('/albums', ratingsRoutes)
 router.use('/reviews', reviewsRoutes)
 
+const reportsRoutes = require('./api/reportsRoutes')
+const adminRoutes = require('./api/adminRoutes')
 
+router.use('/albums', reportsRoutes)
+router.use('/admin', adminRoutes)
+
+const discogsRoutes = require('./api/discogsRoutes')
+router.use('/discogs', discogsRoutes)
 
 /** ERROR HANDLING **/
 router.use((req, res)=> {
