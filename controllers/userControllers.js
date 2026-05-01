@@ -928,3 +928,20 @@ exports.checkBlocked = async (req, res, next)=> {
         next(err)
     }
 }
+
+exports.getSocketToken = async (req, res, next)=> {
+    try {
+        const token = jwt.sign(
+            {
+                users_id: req.user.users_id,
+                email: req.user.email,
+                is_admin: req.user.is_admin
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        )
+        res.status(200).json({ token })
+    } catch (err) {
+        next(err)
+    }
+}

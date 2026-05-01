@@ -5,6 +5,7 @@ const commentController = require('../../controllers/commentController')
 
 // Feed 
 router.get('/feed', auth, postController.getFeed)
+router.get('/:id', auth, postController.getPostById)
 
 // Posts 
 router.post('/', auth, postController.createPost)

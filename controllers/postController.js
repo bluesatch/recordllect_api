@@ -395,3 +395,55 @@ exports.unlikePost = async (req, res, next)=> {
         next(err)
     }
 }
+
+exports.getPostById = async (req, res, next) => {
+    const { id } = req.params
+    const userId = req.user.users_id
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT
+                p.post_id,
+                p.body,
+                p.image_url,
+                p.video_url,
+                p.alt_text,
+                p.created_at,
+                p.updated_at,
+                u.users_id,
+                u.username,
+                u.profile_image_url,
+                COUNT(DISTINCT pl.like_id) AS like_count,
+                COUNT(DISTINCT c.comment_id) AS comment_count,
+                MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user
+            FROM posts p
+            JOIN users u ON p.users_id = u.users_id
+            LEFT JOIN post_likes pl ON p.post_id = pl.post_id
+            LEFT JOIN comments c ON p.post_id = c.post_id
+            WHERE p.post_id = ?
+            GROUP BY
+                p.post_id,
+                p.body,
+                p.image_url,
+                p.video_url,
+                p.alt_text,
+                p.created_at,
+                p.updated_at,
+                u.users_id,
+                u.username,
+                u.profile_image_url`,
+            [userId, id]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Post not found' })
+        }
+
+        const post = rows[0]
+        post.tags = await getPostTags(post.post_id)
+
+        res.status(200).json(post)
+    } catch (err) {
+        next(err)
+    }
+}
