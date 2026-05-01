@@ -261,6 +261,28 @@ exports.importFromDiscogs = async (req, res, next) => {
             }
         }
 
+        // 7. Import tracklist
+        if (release.tracklist?.length > 0) {
+            for (let i = 0; i < release.tracklist.length; i++) {
+                const track = release.tracklist[i]
+
+                // Skip headings - Discogs uses type_ 'heading' for side labels 
+                if (track.type_ === 'heading') continue 
+
+                await con.execute(
+                    `INSERT INTO tracks (album_id, position, title, duration, track_order)
+                    VALUES (?, ?, ?, ?, ?)`,
+                    [
+                        albumId,
+                        track.position || null,
+                        track.title, 
+                        track.duration || null,
+                        i + 1
+                    ]
+                )
+            }
+        }
+
         await con.commit()
 
         res.status(201).json({
@@ -276,5 +298,89 @@ exports.importFromDiscogs = async (req, res, next) => {
         next(err)
     } finally {
         con.release()
+    }
+}
+
+// IMPORT tracks for an existing album from Discogs
+exports.importTracksForAlbum = async (req, res, next) => {
+    const { id } = req.params
+
+    try {
+        // Get the album's discogs_id
+        const [albumRows] = await pool.execute(
+            `SELECT album_id, discogs_id, title FROM albums WHERE album_id = ?`,
+            [id]
+        )
+
+        if (albumRows.length === 0) {
+            return res.status(404).json({ message: 'Album not found' })
+        }
+
+        const album = albumRows[0]
+
+        if (!album.discogs_id) {
+            return res.status(400).json({
+                message: 'Album has no Discogs ID — cannot fetch tracks'
+            })
+        }
+
+        // Check if tracks already exist
+        const [existingTracks] = await pool.execute(
+            `SELECT COUNT(*) AS count FROM tracks WHERE album_id = ?`,
+            [id]
+        )
+
+        if (existingTracks[0].count > 0) {
+            return res.status(409).json({
+                message: 'Tracks already imported for this album'
+            })
+        }
+
+        // Fetch from Discogs
+        const response = await fetch(
+            `${DISCOGS_BASE}/releases/${album.discogs_id}?token=${DISCOGS_TOKEN}`,
+            { headers: DISCOGS_HEADERS }
+        )
+
+        if (!response.ok) {
+            return res.status(response.status).json({
+                message: 'Failed to fetch release from Discogs'
+            })
+        }
+
+        const release = await response.json()
+
+        if (!release.tracklist || release.tracklist.length === 0) {
+            return res.status(404).json({
+                message: 'No tracklist found on Discogs for this album'
+            })
+        }
+
+        // Insert tracks
+        let trackCount = 0
+        for (let i = 0; i < release.tracklist.length; i++) {
+            const track = release.tracklist[i]
+            if (track.type_ === 'heading') continue
+
+            await pool.execute(
+                `INSERT INTO tracks (album_id, position, title, duration, track_order)
+                VALUES (?, ?, ?, ?, ?)`,
+                [
+                    id,
+                    track.position || null,
+                    track.title,
+                    track.duration || null,
+                    i + 1
+                ]
+            )
+            trackCount++
+        }
+
+        res.status(201).json({
+            message: `${trackCount} tracks imported successfully`,
+            track_count: trackCount
+        })
+    } catch (err) {
+        next(err)
     }
 }

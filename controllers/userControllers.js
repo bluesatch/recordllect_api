@@ -2,6 +2,7 @@
 const pool = require('../config/dbconfig')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const { createNotification } = require('./notificationController')
 
 // Validate password
 const validatePassword = (password)=> {
@@ -437,6 +438,7 @@ exports.getUserAlbums = async (req, res, next)=> {
                 a.release_year,
                 a.album_image_url,
                 v.performer_name,
+                v.performer_id,
                 v.performer_type,
                 v.label_name,
                 v.format_name
@@ -709,6 +711,18 @@ exports.followUser = async (req, res, next)=> {
             `INSERT INTO follows (follower_id, following_id) VALUES (?, ?)`,
             [follower_id, id]
         )
+
+        const io = req.app.get('io')
+        const [follower] = await pool.execute(
+            `SELECT username FROM users WHERE users_id = ?`, [follower_id]
+        )
+        await createNotification(io, {
+            recipientId: parseInt(id),
+            senderId: follower_id,
+            type: 'follow',
+            referenceId: follower_id,
+            message: `@${follower[0].username} started following you`
+        })
 
         res.status(201).json({ message: 'User followed successfully'})
     } catch (err) {

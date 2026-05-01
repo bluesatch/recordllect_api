@@ -202,6 +202,7 @@ exports.getAlbumById = async (req, res, next) => {
             `SELECT
                 a.performer_id,
                 a.album_id,
+                a.discogs_id,
                 a.title,
                 a.serial_no,
                 a.release_year,

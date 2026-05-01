@@ -1,5 +1,7 @@
 const pool = require('../config/dbconfig')
 
+const { createNotification } = require('./notificationController')
+
 // Helper - fetch tags for a post 
 const getPostTags = async (postId)=> {
     const [ tags ] = await pool.execute(
@@ -345,6 +347,24 @@ exports.likePost = async (req, res, next)=> {
             `INSERT INTO post_likes (post_id, users_id) VALUES (?, ?)`,
             [id, userId]
         )
+
+        // Add NOTIFICATIONS
+        const io = req.app.get('io')
+
+        const [ postOwner ] = await pool.execute(
+            `SELECT users_id FROM posts WHERE post_id = ?`, [id]
+        )
+
+        const [ liker ] = await pool.execute(
+            `SELECT username FROM users WHERE users_id = ?`, [userId]
+        )
+        await createNotification(io, {
+            recipientId: postOwner[0].users_id,
+            senderId: userId,
+            type: 'like_post',
+            referenceId: parseInt(id),
+            message: `@${liker[0].username} liked your post`
+        })
 
         res.status(201).json({ message: 'Post liked'})
     } catch (err) {

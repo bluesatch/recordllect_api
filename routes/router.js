@@ -54,6 +54,12 @@ router.use('/admin', adminRoutes)
 const discogsRoutes = require('./api/discogsRoutes')
 router.use('/discogs', discogsRoutes)
 
+const tracksRoutes = require('./api/tracksRoutes')
+router.use('/albums', tracksRoutes)
+
+const notificationsRoutes = require('./api/notificationsRoutes')
+router.use('/notifications', notificationsRoutes)
+
 /** ERROR HANDLING **/
 router.use((req, res)=> {
     res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found` })

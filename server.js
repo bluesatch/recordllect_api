@@ -1,41 +1,71 @@
-// Import and instantiate express as server
+// REWRITING TO INCLUDE SOCKET.IO 
+require('dotenv').config()
 const express = require('express')
-const server = express()
-
 const cors = require('cors')
+const cookieParser = require('cookie-parser')
+const http = require('http')
+const { Server } = require('socket.io')
+const jwt = require('jsonwebtoken')
+const router = require('./routes/router')
 
+const app = express()
+const server = http.createServer(app)
 
-// Import and config dotenv. For environmental variables
-const dotenv = require('dotenv')
-dotenv.config()
+// SOCKET.IO SETUP 
+const io = new Server(server, {
+    cors: {
+        origin: process.env.CLIENT_URL || 'http://localhost:3000',
+        credentials: true
+    }
+})
 
-server.use(express.json())
-server.use(cors({
-    origin: 'http://localhost:3000',
+// Make io accessible to controllers 
+app.set('io', io)
+
+// MIDDLEWARE 
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://lcoalhost:3000',
     credentials: true
 }))
 
-// cookieParser
-const cookieParser = require('cookie-parser')
-server.use(cookieParser())
+app.use(express.json())
+app.use(cookieParser())
 
-// Routes
-const router = require('./routes/router')
-server.use('/api', router)
+app.use('/api', router)
 
-server.use((err, req, res, next)=> {
-    console.error(err.stack)
-    res.status(err.status || 500).json({
-        message: err.message || 'Internal server error'
-    })
+// SOCKET.IO AUTH MIDDLEWARE 
+io.use((socket, next) => {
+    try {
+        const token = socket.handshake.auth.token || 
+            socket.handshake.headers.cookie?.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1]
+        
+        if (!token) {
+            return next(new Error('Authentication required'))
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        socket.user = decoded
+        next()
+    } catch (err) {
+        next(new Error('Invalid token'))
+    }
 })
 
-// Health Check
-server.get('/health', (req, res)=> {
-    res.json({ status: 'ok' })
+// SOCKET.IO CONNECTION HANDLER 
+io.on('connection', (socket)=> {
+    const userId = socket.user.users_id 
+
+    console.log(`User ${userId} connected via WebSocket`)
+
+    // JOIN PERSONAL ROOM - NOTIFICATIONS SENT TO THIS ROOM 
+    socket.join(`user_${userId}`)
+
+    socket.on('disconnect', ()=> {
+        console.log(`User ${userId} disconeected`)
+    })
 })
 
 const PORT = process.env.PORT || 3001
 server.listen(PORT, ()=> {
-    console.log(`You found the groove on port ${PORT}`)
+    console.log(`You found the groove at port ${PORT}`)
 })

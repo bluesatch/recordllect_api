@@ -1,5 +1,7 @@
 const pool = require('../config/dbconfig')
 
+const { createNotification } = require('./notificationController')
+
 // GET comments for a post 
 exports.getComments = async (req, res, next)=> {
     const { id } = req.params 
@@ -72,11 +74,28 @@ exports.addComment = async (req, res, next)=> {
         return res.status(400).json({ message: 'Comment body is required'})
     }
 
+
+
     try {
         const [ result ] = await pool.execute(
             `INSERT INTO comments (post_id, users_id, body) VALUES (?, ?, ?)`,
             [id, userId, body]
         )
+
+        const io = req.app.get('io')
+        const [postOwner] = await pool.execute(
+            `SELECT users_id FROM posts WHERE post_id = ?`, [id]
+        )
+        const [commenter] = await pool.execute(
+            `SELECT username FROM users WHERE users_id = ?`, [userId]
+        )
+        await createNotification(io, {
+            recipientId: postOwner[0].users_id,
+            senderId: userId,
+            type: 'comment',
+            referenceId: parseInt(id),
+            message: `@${commenter[0].username} commented on your post`
+        })
 
         res.status(201).json({
             message: 'Comment added',
@@ -125,6 +144,21 @@ exports.likeComment = async (req, res, next) => {
             [id, userId]
         )
 
+        const io = req.app.get('io')
+        const [commentOwner] = await pool.execute(
+            `SELECT users_id FROM comments WHERE comment_id = ?`, [id]
+        )
+        const [liker] = await pool.execute(
+            `SELECT username FROM users WHERE users_id = ?`, [userId]
+        )
+        await createNotification(io, {
+            recipientId: commentOwner[0].users_id,
+            senderId: userId,
+            type: 'like_comment',
+            referenceId: parseInt(id),
+            message: `@${liker[0].username} liked your comment`
+        })
+
         res.status(201).json({ message: 'Comment liked' })
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -170,6 +204,21 @@ exports.addReply = async (req, res, next) => {
             `INSERT INTO replies (comment_id, users_id, body) VALUES (?, ?, ?)`,
             [id, userId, body]
         )
+
+        const io = req.app.get('io')
+        const [commentOwner] = await pool.execute(
+            `SELECT users_id FROM comments WHERE comment_id = ?`, [id]
+        )
+        const [replier] = await pool.execute(
+            `SELECT username FROM users WHERE users_id = ?`, [userId]
+        )
+        await createNotification(io, {
+            recipientId: commentOwner[0].users_id,
+            senderId: userId,
+            type: 'reply',
+            referenceId: parseInt(id),
+            message: `@${replier[0].username} replied to your comment`
+        })
 
         res.status(201).json({
             message: 'Reply added',
