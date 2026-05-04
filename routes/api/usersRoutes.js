@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const auth = require('../../middleware/auth')
+const admin = require('../../middleware/admin')
 const userController = require('../../controllers/userControllers')
 const postController = require('../../controllers/postController')
 
@@ -28,6 +29,7 @@ router.post('/:id/block', auth, userController.blockUser)
 // PUT
 router.put('/:id', auth, userController.updateUser)
 router.put('/:id/deactivate', auth, userController.deactivateAccount)
+router.put('/:id/reactivate', auth, admin, userController.reactivateAccount)
 router.put('/:id/now-playing', auth, userController.setNowPlaying)
 
 // DELETE

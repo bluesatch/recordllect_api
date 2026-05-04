@@ -41,3 +41,104 @@
 {"ip":"::1","level":"info","message":"PUT /api/users/11/deactivate","timestamp":"2026-05-04 11:59:41","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
 {"ip":"::1","level":"info","message":"POST /api/users/logout","timestamp":"2026-05-04 11:59:41","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
 {"level":"info","message":"User 11 disconnected","timestamp":"2026-05-04 11:59:41"}
+{"ip":"::1","level":"info","message":"POST /api/users/login","timestamp":"2026-05-04 12:03:01","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/me","timestamp":"2026-05-04 12:03:01","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/notifications?limit=1","timestamp":"2026-05-04 12:03:01","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/socket-token","timestamp":"2026-05-04 12:03:01","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:03:01"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/albums?page=1&limit=60&sort=added_desc","timestamp":"2026-05-04 12:03:01","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/albums?page=1&limit=60&sort=added_desc","timestamp":"2026-05-04 12:03:01","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/blocked","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/top-eight","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/albums?page=1&limit=20&sort=added_desc","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/blocked","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/top-eight","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/albums?page=1&limit=20&sort=added_desc","timestamp":"2026-05-04 12:03:06","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/genres","timestamp":"2026-05-04 12:03:10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/albums?page=1&limit=20&sort=title_asc","timestamp":"2026-05-04 12:03:10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/formats","timestamp":"2026-05-04 12:03:10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/genres","timestamp":"2026-05-04 12:03:10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/formats","timestamp":"2026-05-04 12:03:10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/albums?page=1&limit=20&sort=title_asc","timestamp":"2026-05-04 12:03:10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/discogs/search?q=Rudolph%20Johnson%20-%20the%20second%20coming","timestamp":"2026-05-04 12:03:38","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"POST /api/discogs/import","timestamp":"2026-05-04 12:03:42","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/albums?page=1&limit=20&sort=title_asc","timestamp":"2026-05-04 12:03:43","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/discogs/search?q=Walter%20Bishop%20jr%27s%204th%20cycle%20-%20keeper%20of%20my%20soul","timestamp":"2026-05-04 12:04:20","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"POST /api/discogs/import","timestamp":"2026-05-04 12:04:25","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/albums?page=1&limit=20&sort=title_asc","timestamp":"2026-05-04 12:04:25","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/blocked","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/top-eight","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/albums?page=1&limit=20&sort=added_desc","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/blocked","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/top-eight","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"ip":"::1","level":"info","message":"GET /api/users/1/albums?page=1&limit=20&sort=added_desc","timestamp":"2026-05-04 12:04:29","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:13:46"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:13:59"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:14:02"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:14:21"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:14:27"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:14:28"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:14:45"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:14:57"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:04"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:06"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:11"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:21"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:25"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:27"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:29"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:35"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:43"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:45"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:47"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:54"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:15:57"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:01"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:13"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:17"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:22"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:24"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:34"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:39"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:41"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:45"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:50"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:16:52"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:17:00"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:17:03"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:17:12"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:17:13"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:17:15"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:17:19"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:26:46"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:26:49"}
+{"level":"info","message":"User 1 disconnected","timestamp":"2026-05-04 12:26:51"}
+{"ip":"::1","level":"info","message":"GET /api/users/me","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/users/me","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/notifications?limit=1","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/notifications?limit=1","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/inactive-users","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/reports/stats","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/reports?status=pending","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/users/socket-token","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/users/socket-token","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:26:52"}
+{"ip":"::1","level":"info","message":"GET /api/admin/inactive-users","timestamp":"2026-05-04 12:26:52","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:26:52"}
+{"level":"info","message":"User 1 disconnected","timestamp":"2026-05-04 12:30:04"}
+{"level":"info","message":"User 1 disconnected","timestamp":"2026-05-04 12:30:04"}
+{"ip":"::1","level":"info","message":"GET /api/notifications?limit=1","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/reports/stats","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/reports?status=pending","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/inactive-users","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/notifications?limit=1","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/users/socket-token","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"ip":"::1","level":"info","message":"GET /api/admin/inactive-users","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:30:06"}
+{"ip":"::1","level":"info","message":"GET /api/users/socket-token","timestamp":"2026-05-04 12:30:06","userAgent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"}
+{"level":"info","message":"User 1 disconnected","timestamp":"2026-05-04 12:40:31"}
+{"level":"info","message":"User 1 connected via WebSocket","timestamp":"2026-05-04 12:40:33"}

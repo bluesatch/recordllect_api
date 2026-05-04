@@ -4,10 +4,12 @@ const admin = require('../../middleware/admin')
 const reportController = require('../../controllers/reportController')
 const albumController = require('../../controllers/albumController')
 const trackController = require('../../controllers/trackController')
+const userController = require('../../controllers/userControllers')
 
 // All admin routes require auth + admin middleware
 router.get('/reports', auth, admin, reportController.getAllReports)
 router.get('/reports/stats', auth, admin, reportController.getReportStats)
+router.get('/inactive-users', auth, admin, userController.getInactiveUsers)
 router.put('/reports/:id', auth, admin, reportController.updateReport)
 router.delete('/albums/:id', auth, admin, albumController.deleteAlbum)
 router.delete('/tracks/:id', auth, admin, trackController.deleteTrack)

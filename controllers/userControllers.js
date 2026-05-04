@@ -982,3 +982,53 @@ exports.deactivateAccount = async (req, res, next)=> {
         next(err)
     }
 }
+
+// REACTIVATE ACCOUNT - admin only 
+exports.reactivateAccount = async (req, res, next)=> {
+    const { id } = req.params 
+
+    try {
+        const [ result ] = await pool.execute(
+            `UPDATE users SET 
+                status = 'active'
+                email_verified_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE users_id = ?`,
+            [id]    
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+
+        res.status(200).json({ message: 'Account reactivated successfully' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// GET inactive users — admin only
+exports.getInactiveUsers = async (req, res, next) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT
+                users_id,
+                username,
+                first_name,
+                last_name,
+                email,
+                profile_image_url,
+                updated_at
+            FROM users
+            WHERE status = 'inactive'
+            ORDER BY updated_at DESC`
+        )
+
+        res.status(200).json({
+            count: rows.length,
+            users: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}

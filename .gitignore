@@ -1,3 +1,8 @@
 node_modules/
 *-lock.json
 *.env
+logs/
+*.log 
+npm-debug.log*
+logs/*
+!logs/.gitkeep
