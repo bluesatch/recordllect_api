@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // GET all tags
 exports.getAllTags = async (req, res, next)=> {

@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // Helper - check if requesting user is a follower 
 const isFollower = async (requesterId, profileId)=> {

@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // GET rating stats for an album
 exports.getAlbumRatings = async (req, res, next)=> {

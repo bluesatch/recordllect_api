@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 exports.createAlbum = async (req, res, next)=> {
     const {

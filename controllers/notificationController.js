@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // Helper — create and emit a notification
 const createNotification = async (io, {
@@ -44,7 +45,7 @@ const createNotification = async (io, {
 
         return rows[0]
     } catch (err) {
-        console.error('Failed to create notification:', err)
+        logger.error('Failed to create notification:', {error: err.message})
     }
 }
 

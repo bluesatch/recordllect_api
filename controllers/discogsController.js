@@ -1,5 +1,6 @@
 require('dotenv').config()
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 const DISCOGS_TOKEN = process.env.DISCOGS_TOKEN
 const DISCOGS_BASE = 'https://api.discogs.com'
@@ -256,7 +257,7 @@ exports.importFromDiscogs = async (req, res, next) => {
                         [albumId, genreId]
                     )
                 } catch (err) {
-                    console.error(`Failed to add genre ${genreName}:`, err.message)
+                    logger.error(`Failed to add genre ${genreName}:`, {error: err.message})
                 }
             }
         }

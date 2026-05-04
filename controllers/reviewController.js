@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // GET reviews for an album 
 exports.getAlbumReviews = async (req, res, next)=> {

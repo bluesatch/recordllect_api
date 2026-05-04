@@ -7,6 +7,7 @@ const http = require('http')
 const { Server } = require('socket.io')
 const jwt = require('jsonwebtoken')
 const router = require('./routes/router')
+const logger = require('./config/logger')
 
 const app = express()
 const server = http.createServer(app)
@@ -30,6 +31,15 @@ app.use(cors({
 
 app.use(express.json())
 app.use(cookieParser())
+
+// Logger middleware 
+app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.originalUrl}`, {
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+    })
+    next()
+})
 
 app.use('/api', router)
 
@@ -55,13 +65,30 @@ io.use((socket, next) => {
 io.on('connection', (socket)=> {
     const userId = socket.user.users_id 
 
-    console.log(`User ${userId} connected via WebSocket`)
+    logger.info(`User ${userId} connected via WebSocket`)
 
     // JOIN PERSONAL ROOM - NOTIFICATIONS SENT TO THIS ROOM 
     socket.join(`user_${userId}`)
 
     socket.on('disconnect', ()=> {
-        console.log(`User ${userId} disconeected`)
+        logger.info(`User ${userId} disconnected`)
+    })
+})
+
+// GLOBAL ERROR HANDLER 
+app.use((err, req, res, next)=> {
+    logger.error('Unhandled error', {
+        message: err.message,
+        stack: err.stack,
+        method: req.method,
+        url: req.originalUrl,
+        userId: req.user?.users_id
+    })
+
+    res.status(err.status || 500).json({
+        message: process.env.NODE_ENV === 'production'
+            ? 'Internal server error'
+            : err.message
     })
 })
 

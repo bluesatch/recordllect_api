@@ -1,5 +1,6 @@
 const pool = require('../config/dbconfig')
 const { sendReportEmail } = require('../config/mailer')
+const logger = require('../config/logger')
 
 // REPORT an album
 exports.reportAlbum = async (req, res, next) => {

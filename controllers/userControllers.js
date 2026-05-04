@@ -3,6 +3,7 @@ const pool = require('../config/dbconfig')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const { createNotification } = require('./notificationController')
+const logger = require('../config/logger')
 
 // Validate password
 const validatePassword = (password)=> {
@@ -941,6 +942,42 @@ exports.getSocketToken = async (req, res, next)=> {
             { expiresIn: '1h' }
         )
         res.status(200).json({ token })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// DEACTIVATE ACCOUNT 
+exports.deactivateAccount = async (req, res, next)=> {
+    const { id } = req.params 
+    const userId = req.user.users_id 
+
+    // USERS CAN ONLY DEACTIVATE THEIR OWN ACCOUNT 
+    // ADMINS CAN DEACTIVATE ANY ACCOUNT 
+    if (parseInt(id) !== userId && !req.user.is_admin) {
+        return res.status(403).json({
+            message: 'You can only deactivate your own account'
+        })
+    }
+
+    try {
+        const [ result ] = await pool.execute(
+            `UPDATE users SET 
+                status = 'inactive',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE users_id = ?`,
+            [id]
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+
+        if (parseInt(id) === userId) {
+            res.clearCookie('token')
+        }
+
+        res.status(200).json({ message: 'Account deactivated successfully'})
     } catch (err) {
         next(err)
     }

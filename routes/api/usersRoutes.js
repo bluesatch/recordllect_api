@@ -27,6 +27,7 @@ router.post('/:id/block', auth, userController.blockUser)
 
 // PUT
 router.put('/:id', auth, userController.updateUser)
+router.put('/:id/deactivate', auth, userController.deactivateAccount)
 router.put('/:id/now-playing', auth, userController.setNowPlaying)
 
 // DELETE

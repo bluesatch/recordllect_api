@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // CREATE LABEL
 exports.createLabel = async (req, res, next)=> {
@@ -153,26 +154,6 @@ exports.getLabelById = async (req, res, next)=> {
 
         const label = rows[0]
         label.album_count = countResult[0].total
-
-        // const label = rows[0]
-
-        // // Fetch albums associated with this label
-        // const [ albums ] = await pool.execute(
-        //     `SELECT 
-        //         a.album_id,
-        //         a.title,
-        //         a.release_year,
-        //         a.performer_id,
-        //         v.performer_name,
-        //         v.format_name
-        //     FROM albums a
-        //     JOIN v_album_details v ON a.album_id = v.album_id
-        //     WHERE a.label_id = ?
-        //     ORDER BY ${orderBy}`,
-        //     [id]
-        // )
-
-        // label.albums = albums
 
         res.status(200).json(label)
 

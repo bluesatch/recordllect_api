@@ -1,4 +1,5 @@
 const pool = require('../config/dbconfig')
+const logger = require('../config/logger')
 
 // GET user's Top Eight
 exports.getTopEight = async (req, res, next)=> {
