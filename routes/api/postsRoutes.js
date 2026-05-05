@@ -14,7 +14,9 @@ router.delete('/:id', auth, postController.deletePost)
 
 // Post likes 
 router.post('/:id/like', auth, postController.likePost)
+router.post('/:id/repost', auth, postController.repostPost)
 router.delete('/:id/like', auth, postController.unlikePost)
+router.delete('/:id/repost', auth, postController.undoRepost)
 
 // Comments 
 router.get('/:id/comments', auth, commentController.getComments)

@@ -36,79 +36,145 @@ const getPostLikes = async (postId, userId)=> {
 }
 
 // GET feed - posts from followed users 
-exports.getFeed = async (req, res, next)=> {
+exports.getFeed = async (req, res, next) => {
     const userId = req.user.users_id
-    const page = parseInt(req.query.page) || 1 
-    const limit = parseInt(req.query.limit) || 10 
-    const offset = (page - 1) * limit 
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 10
+    const offset = (page - 1) * limit
 
     try {
-        
-        const [ countResult ] = await pool.execute (
-            `SELECT COUNT(*) AS total 
-            FROM posts p 
-            WHERE p.users_id IN (
-                SELECT following_id FROM follows WHERE follower_id = ?
-                UNION
-                SELECT ?
-            )
-            AND p.users_id NOT IN (
-                SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
-                UNION
-                SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
-            )`,
-            [userId, userId, userId, userId]
+        const [rows] = await pool.query(
+            `SELECT * FROM (
+                SELECT
+                    p.post_id,
+                    p.body,
+                    p.image_url,
+                    p.video_url,
+                    p.alt_text,
+                    p.created_at,
+                    p.updated_at,
+                    u.users_id,
+                    u.username,
+                    u.profile_image_url,
+                    COUNT(DISTINCT pl.like_id) AS like_count,
+                    COUNT(DISTINCT c.comment_id) AS comment_count,
+                    MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user,
+                    NULL AS repost_id,
+                    NULL AS reposted_by_id,
+                    NULL AS reposted_by_username,
+                    NULL AS quote,
+                    p.created_at AS sort_date,
+                    CAST(0 AS UNSIGNED) AS is_repost
+                FROM posts p
+                JOIN users u ON p.users_id = u.users_id
+                LEFT JOIN post_likes pl ON p.post_id = pl.post_id
+                LEFT JOIN comments c ON p.post_id = c.post_id
+                WHERE p.users_id IN (
+                    SELECT following_id FROM follows WHERE follower_id = ?
+                    UNION SELECT ?
+                )
+                AND p.users_id NOT IN (
+                    SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                    UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+                )
+                GROUP BY
+                    p.post_id, p.body, p.image_url, p.video_url,
+                    p.alt_text, p.created_at, p.updated_at,
+                    u.users_id, u.username, u.profile_image_url
+
+                UNION ALL
+
+                SELECT
+                    p.post_id,
+                    p.body,
+                    p.image_url,
+                    p.video_url,
+                    p.alt_text,
+                    p.created_at,
+                    p.updated_at,
+                    u.users_id,
+                    u.username,
+                    u.profile_image_url,
+                    COUNT(DISTINCT pl.like_id) AS like_count,
+                    COUNT(DISTINCT c.comment_id) AS comment_count,
+                    MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user,
+                    r.repost_id,
+                    ru.users_id AS reposted_by_id,
+                    ru.username AS reposted_by_username,
+                    r.quote,
+                    r.created_at AS sort_date,
+                    CAST(1 AS UNSIGNED) AS is_repost
+                FROM reposts r
+                JOIN posts p ON r.post_id = p.post_id
+                JOIN users u ON p.users_id = u.users_id
+                JOIN users ru ON r.users_id = ru.users_id
+                LEFT JOIN post_likes pl ON p.post_id = pl.post_id
+                LEFT JOIN comments c ON p.post_id = c.post_id
+                WHERE r.users_id IN (
+                    SELECT following_id FROM follows WHERE follower_id = ?
+                    UNION SELECT ?
+                )
+                AND r.users_id NOT IN (
+                    SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                    UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+                )
+                GROUP BY
+                    p.post_id, p.body, p.image_url, p.video_url,
+                    p.alt_text, p.created_at, p.updated_at,
+                    u.users_id, u.username, u.profile_image_url,
+                    r.repost_id, ru.users_id, ru.username,
+                    r.quote, r.created_at
+            ) AS feed
+            ORDER BY sort_date DESC
+            LIMIT ? OFFSET ?`,
+            [
+                userId,         // liked_by_user check — original posts
+                userId,         // following_id
+                userId,         // UNION SELECT ? (own posts)
+                userId,         // blocked check 1
+                userId,         // blocked check 2
+                userId,         // liked_by_user check — reposts
+                userId,         // following_id — reposts
+                userId,         // UNION SELECT ? (own reposts)
+                userId,         // blocked check 1 — reposts
+                userId,         // blocked check 2 — reposts
+                Number(limit),
+                Number(offset)
+            ]
         )
 
-        const total = countResult[0].total 
+        // Get total count
+        const [countResult] = await pool.query(
+            `SELECT COUNT(*) AS total FROM (
+                SELECT p.post_id, 0 AS is_repost
+                FROM posts p
+                WHERE p.users_id IN (
+                    SELECT following_id FROM follows WHERE follower_id = ?
+                    UNION SELECT ?
+                )
+                AND p.users_id NOT IN (
+                    SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                    UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+                )
+                UNION ALL
+                SELECT r.post_id, 1 AS is_repost
+                FROM reposts r
+                WHERE r.users_id IN (
+                    SELECT following_id FROM follows WHERE follower_id = ?
+                    UNION SELECT ?
+                )
+                AND r.users_id NOT IN (
+                    SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                    UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+                )
+            ) AS feed_count`,
+            [userId, userId, userId, userId, userId, userId, userId, userId]
+        )
+
+        const total = countResult[0].total
         const totalPages = Math.ceil(total / limit)
 
-        const [ rows ] = await pool.query(
-            `SELECT 
-                p.post_id,
-                p.body,
-                p.image_url,
-                p.video_url,
-                p.alt_text,
-                p.created_at,
-                p.updated_at,
-                u.users_id,
-                u.username,
-                u.profile_image_url,
-                COUNT(DISTINCT pl.like_id) AS like_count,
-                COUNT(DISTINCT c.comment_id) AS comment_count,
-                MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user
-            FROM posts p 
-            JOIN users u ON p.users_id = u.users_id
-            LEFT JOIN post_likes pl ON p.post_id = pl.post_id
-            LEFT JOIN comments c ON p.post_id = c.post_id 
-            WHERE p.users_id IN (
-                SELECT following_id FROM follows WHERE follower_id = ?
-                UNION
-                SELECT ?
-            )
-            AND p.users_id NOT IN (
-                SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
-                UNION 
-                SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
-            )
-            GROUP BY 
-                p.post_id,
-                p.body,
-                p.image_url,
-                p.video_url,
-                p.alt_text,
-                p.created_at,
-                p.updated_at,
-                u.users_id,
-                u.username,
-                u.profile_image_url
-            ORDER BY p.created_at DESC 
-            LIMIT ? OFFSET ?`,
-            [userId, userId, userId, userId, userId, Number(limit), Number(offset)]
-        )
-
-        // Fetch tags for each post 
+        // Fetch tags for each post
         const posts = await Promise.all(rows.map(async post => ({
             ...post,
             tags: await getPostTags(post.post_id)
@@ -136,8 +202,12 @@ exports.getUserPosts = async (req, res, next)=> {
 
     try {
         const [ countResult ] = await pool.execute(
-            `SELECT COUNT(*) AS total FROM posts WHERE users_id = ?`,
-            [id]
+            `SELECT COUNT(*) AS total FROM (
+                SELECT post_id FROM posts WHERE users_id = ?
+                UNION ALL 
+                SELECT post_id FROM reposts WHERE users_id = ?
+            ) AS user_feed`,
+            [id, id]
         )
 
         const total = countResult[0].total 
@@ -178,6 +248,49 @@ exports.getUserPosts = async (req, res, next)=> {
             LIMIT ? OFFSET ?`,
             [userId, id, Number(limit), Number(offset)]
         )
+
+        const [repostRows] = await pool.query(
+            `SELECT
+                p.post_id,
+                p.body,
+                p.image_url,
+                p.video_url,
+                p.alt_text,
+                p.created_at,
+                p.updated_at,
+                u.users_id,
+                u.username,
+                u.profile_image_url,
+                COUNT(DISTINCT pl.like_id) AS like_count,
+                COUNT(DISTINCT c.comment_id) AS comment_count,
+                MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user,
+                r.repost_id,
+                ru.users_id AS reposted_by_id,
+                ru.username AS reposted_by_username,
+                r.quote,
+                r.created_at AS reposted_at,
+                1 AS is_repost
+            FROM reposts r
+            JOIN posts p ON r.post_id = p.post_id
+            JOIN users u ON p.users_id = u.users_id
+            JOIN users ru ON r.users_id = ru.users_id
+            LEFT JOIN post_likes pl ON p.post_id = pl.post_id
+            LEFT JOIN comments c ON p.post_id = c.post_id
+            WHERE r.users_id = ?
+            GROUP BY
+                p.post_id, p.body, p.image_url, p.video_url,
+                p.alt_text, p.created_at, p.updated_at,
+                u.users_id, u.username, u.profile_image_url,
+                r.repost_id, ru.users_id, ru.username,
+                r.quote, r.created_at`,
+            [userId, id]
+        )
+
+        const allPosts = [...rows, ...repostRows].sort((a, b)=> {
+            const dateA = new Date(a.is_repost ? a.reposted_at : a.created_at)
+            const dateB = new Date(b.is_repost ? b.reposted_at : b.created_at)
+            return dateB - dateA
+        }).slice(offset, offset + limit)
 
         const posts = await Promise.all(rows.map(async post => ({
             ...post,
@@ -444,6 +557,80 @@ exports.getPostById = async (req, res, next) => {
         post.tags = await getPostTags(post.post_id)
 
         res.status(200).json(post)
+    } catch (err) {
+        next(err)
+    }
+}
+
+// REPOST or quote repost 
+exports.repostPost = async (req, res, next)=> {
+    const { id } = req.params 
+    const userId = req.user.users_id 
+    const { quote } = req.body 
+
+    try {
+        
+        const [ postRows ] = await pool.execute(
+            `SELECT users_id FROM posts WHERE post_id = ?`,
+            [id]
+        )
+
+        if (postRows.length === 0) {
+            return res.status(404).json({ message: 'Post not found' })
+        }
+
+        if (postRows[0].users_id === userId) {
+            return res.status(400).json({ message: 'You cannot repost your own post' })
+        }
+
+        const [ result ] = await pool.execute(
+            `INSERT INTO reposts (users_id, post_id, quote)
+            VALUES (?, ?, ?)`,
+            [userId, id, quote || null]
+        )
+
+        const io = req.app.get('io')
+        const [ reposter ] = await pool.execute(
+            `SELECT username FROM users WHERE users_id = ?`,
+            [userId]
+        )
+
+        await createNotification(io, {
+            recipientId: postRows[0].users_id,
+            senderId: userId,
+            type: 'repost',
+            referenceId: parseInt(id),
+            message: quote ? `@${reposter[0].username} quote reposted your post` : `@${reposter[0].username} reposted your post`
+        })
+
+        res.status(201).json({
+            message: quote ? 'Post quote reposted' : 'Post reposted',
+            repost_id: result.insertId
+        })
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Already reposted this post' })
+        }
+        next(err)
+    }
+}
+
+// UNDO repost 
+exports.undoRepost = async (req, res,  next)=> {
+    const { id } = req.params 
+    const userId = req.user.users_id 
+
+    try {
+        const [ result ] = await pool.execute(
+            `DELETE FROM reposts WHERE post_id = ? AND users_id = ?`,
+            [id, userId]
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Repost not found'})
+        }
+
+        res.status(200).json({ message: 'Repost removed' })
     } catch (err) {
         next(err)
     }
