@@ -1,9 +1,11 @@
 const router = require('express').Router()
 const albumController = require('../../controllers/albumController')
+const auth = require('../../middleware/auth')
 
 // GET
 router.get('/', albumController.getAllAlbums)
-router.get('/:id', albumController.getAlbumById)
+router.get('/featured', albumController.getFeaturedAlbums)
+router.get('/:id', auth, albumController.getAlbumById)
 
 // POST
 router.post('/', albumController.createAlbum)

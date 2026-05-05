@@ -1,6 +1,24 @@
 const pool = require('../config/dbconfig')
 const logger = require('../config/logger')
 
+// get start of current week (Monday)
+const getWeekStart =()=> {
+    const now = new Date()
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(now.setDate(diff))
+    return monday.toISOString().split('T')[0]
+}
+
+// get start of previous week 
+const getPrevWeekStart = ()=> {
+    const now = new Date()
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7
+    const monday = new Date(now.setDate(diff))
+    return monday.toISOString().split('T')[0]
+}
+
 exports.createAlbum = async (req, res, next)=> {
     const {
         title,
@@ -451,6 +469,172 @@ exports.getAlbumsByLabel = async (req, res, next) => {
             total,
             totalPages,
             page,
+            albums: rows
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.getFeaturedAlbums = async (req, res, next) => {
+    try {
+        const currentWeek = getWeekStart()
+        const prevWeek = getPrevWeekStart()
+
+        // Check if admin has selected albums for this week
+        const [adminPicks] = await pool.execute(
+            `SELECT
+                a.album_id,
+                a.title,
+                a.album_image_url,
+                a.release_year,
+                COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name
+            FROM featured_albums fa
+            JOIN albums a ON fa.album_id = a.album_id
+            JOIN performers p ON a.performer_id = p.performer_id
+            LEFT JOIN artists ar ON p.performer_id = ar.performer_id
+            LEFT JOIN bands b ON p.performer_id = b.performer_id
+            WHERE fa.featured_week = ?
+            ORDER BY fa.created_at ASC
+            LIMIT 20`,
+            [currentWeek]
+        )
+         // If admin picks exist return them
+        if (adminPicks.length > 0) {
+            return res.status(200).json({
+                source: 'admin',
+                week: currentWeek,
+                albums: adminPicks
+            })
+        }
+        // Otherwise return top 8 highest rated from previous week
+        const [topRated] = await pool.execute(
+            `SELECT
+                a.album_id,
+                a.title,
+                a.album_image_url,
+                a.release_year,
+                COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name,
+                ROUND(AVG(ar2.rating), 1) AS average_rating,
+                COUNT(ar2.rating_id) AS total_ratings
+            FROM albums a
+            JOIN performers p ON a.performer_id = p.performer_id
+            LEFT JOIN artists ar ON p.performer_id = ar.performer_id
+            LEFT JOIN bands b ON p.performer_id = b.performer_id
+            JOIN album_ratings ar2 ON a.album_id = ar2.album_id
+            WHERE ar2.created_at >= ?
+            GROUP BY
+                a.album_id,
+                a.title,
+                a.album_image_url,
+                a.release_year,
+                ar.alias,
+                ar.first_name,
+                ar.last_name,
+                b.band_name
+            HAVING COUNT(ar2.rating_id) >= 1
+            ORDER BY average_rating DESC, total_ratings DESC
+            LIMIT 8`,
+            [prevWeek]
+        )
+        res.status(200).json({
+            source: 'ratings',
+            week: currentWeek,
+            albums: topRated
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// SET featured albums — admin only
+exports.setFeaturedAlbum = async (req, res, next) => {
+    const { album_id } = req.body
+    const adminId = req.user.users_id
+
+    if (!album_id) {
+        return res.status(400).json({ message: 'album_id is required' })
+    }
+
+    try {
+        const currentWeek = getWeekStart()
+
+        // Check max 8 featured albums per week
+        const [count] = await pool.execute(
+            `SELECT COUNT(*) AS total FROM featured_albums
+            WHERE featured_week = ?`,
+            [currentWeek]
+        )
+
+        if (count[0].total >= 8) {
+            return res.status(400).json({
+                message: 'Maximum 8 featured albums per week'
+            })
+        }
+
+        await pool.execute(
+            `INSERT INTO featured_albums (album_id, added_by, featured_week)
+            VALUES (?, ?, ?)`,
+            [album_id, adminId, currentWeek]
+        )
+
+        res.status(201).json({ message: 'Album featured successfully' })
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                message: 'Album already featured this week'
+            })
+        }
+        next(err)
+    }
+}
+
+// REMOVE featured album — admin only
+exports.removeFeaturedAlbum = async (req, res, next) => {
+    const { id } = req.params
+
+    try {
+        const [result] = await pool.execute(
+            `DELETE FROM featured_albums WHERE featured_id = ?`,
+            [id]
+        )
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Featured album not found' })
+        }
+
+        res.status(200).json({ message: 'Featured album removed' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// GET current week's admin featured albums — admin only
+exports.getAdminFeatured = async (req, res, next) => {
+    try {
+        const currentWeek = getWeekStart()
+
+        const [rows] = await pool.execute(
+            `SELECT
+                fa.featured_id,
+                fa.featured_week,
+                a.album_id,
+                a.title,
+                a.album_image_url,
+                COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name
+            FROM featured_albums fa
+            JOIN albums a ON fa.album_id = a.album_id
+            JOIN performers p ON a.performer_id = p.performer_id
+            LEFT JOIN artists ar ON p.performer_id = ar.performer_id
+            LEFT JOIN bands b ON p.performer_id = b.performer_id
+            WHERE fa.featured_week = ?
+            ORDER BY fa.created_at ASC`,
+            [currentWeek]
+        )
+
+        res.status(200).json({
+            week: currentWeek,
+            count: rows.length,
             albums: rows
         })
     } catch (err) {
