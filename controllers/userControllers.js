@@ -384,6 +384,7 @@ exports.getMe = async (req, res, next)=> {
             `SELECT
                 np.album_id,
                 a.title,
+                a.album_image_url,
                 v.performer_name
             FROM now_playing np
             JOIN albums a ON np.album_id = a.album_id

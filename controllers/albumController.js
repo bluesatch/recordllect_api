@@ -495,7 +495,7 @@ exports.getFeaturedAlbums = async (req, res, next) => {
             LEFT JOIN artists ar ON p.performer_id = ar.performer_id
             LEFT JOIN bands b ON p.performer_id = b.performer_id
             WHERE fa.featured_week = ?
-            ORDER BY fa.created_at ASC
+            ORDER BY fa.sort_order ASC, fa.created_at ASC
             LIMIT 20`,
             [currentWeek]
         )
@@ -628,7 +628,7 @@ exports.getAdminFeatured = async (req, res, next) => {
             LEFT JOIN artists ar ON p.performer_id = ar.performer_id
             LEFT JOIN bands b ON p.performer_id = b.performer_id
             WHERE fa.featured_week = ?
-            ORDER BY fa.created_at ASC`,
+            ORDER BY fa.sort_order ASC, fa.created_at ASC`,
             [currentWeek]
         )
 
@@ -639,5 +639,37 @@ exports.getAdminFeatured = async (req, res, next) => {
         })
     } catch (err) {
         next(err)
+    }
+}
+
+// REORDER featured albums — admin only
+exports.reorderFeatured = async (req, res, next) => {
+    const { ordered_ids } = req.body
+
+    if (!ordered_ids || !Array.isArray(ordered_ids)) {
+        return res.status(400).json({ message: 'ordered_ids array is required' })
+    }
+
+    const con = await pool.getConnection()
+
+    try {
+        await con.beginTransaction()
+
+        // Update created_at for each featured album to reflect new order
+        // We use a sort_order column approach — add it if not exists
+        for (let i = 0; i < ordered_ids.length; i++) {
+            await con.execute(
+                `UPDATE featured_albums SET sort_order = ? WHERE featured_id = ?`,
+                [i + 1, ordered_ids[i]]
+            )
+        }
+
+        await con.commit()
+        res.status(200).json({ message: 'Order updated successfully' })
+    } catch (err) {
+        await con.rollback()
+        next(err)
+    } finally {
+        con.release()
     }
 }

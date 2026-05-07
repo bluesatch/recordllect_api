@@ -5,6 +5,7 @@ const commentController = require('../../controllers/commentController')
 
 // Feed 
 router.get('/feed', auth, postController.getFeed)
+router.get('/reposts/:id', auth, postController.getRepostById)
 router.get('/:id', auth, postController.getPostById)
 
 // Posts 
@@ -21,5 +22,6 @@ router.delete('/:id/repost', auth, postController.undoRepost)
 // Comments 
 router.get('/:id/comments', auth, commentController.getComments)
 router.post('/:id/comments', auth, commentController.addComment)
+
 
 module.exports = router 

@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 const sendReportEmail = async (report) => {
     try {
         await transporter.sendMail({
-            from: `"Recordllect" <${process.env.EMAIL_USER}>`,
+            from: `"Groovist" <${process.env.EMAIL_USER}>`,
             to: process.env.ADMIN_EMAIL,
             subject: `⚠️ New Album Report — ${report.album_title}`,
             html: `

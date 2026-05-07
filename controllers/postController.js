@@ -599,7 +599,7 @@ exports.repostPost = async (req, res, next)=> {
             recipientId: postRows[0].users_id,
             senderId: userId,
             type: 'repost',
-            referenceId: parseInt(id),
+            referenceId: quote ? result.insertId : parseInt(id),
             message: quote ? `@${reposter[0].username} quote reposted your post` : `@${reposter[0].username} reposted your post`
         })
 
@@ -631,6 +631,61 @@ exports.undoRepost = async (req, res,  next)=> {
         }
 
         res.status(200).json({ message: 'Repost removed' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.getRepostById = async (req, res, next) => {
+    const { id } = req.params
+    const userId = req.user.users_id
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT
+                p.post_id,
+                p.body,
+                p.image_url,
+                p.video_url,
+                p.alt_text,
+                p.created_at,
+                p.updated_at,
+                u.users_id,
+                u.username,
+                u.profile_image_url,
+                COUNT(DISTINCT pl.like_id) AS like_count,
+                COUNT(DISTINCT c.comment_id) AS comment_count,
+                MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user,
+                r.repost_id,
+                ru.users_id AS reposted_by_id,
+                ru.username AS reposted_by_username,
+                r.quote,
+                r.created_at AS reposted_at,
+                1 AS is_repost
+            FROM reposts r
+            JOIN posts p ON r.post_id = p.post_id
+            JOIN users u ON p.users_id = u.users_id
+            JOIN users ru ON r.users_id = ru.users_id
+            LEFT JOIN post_likes pl ON p.post_id = pl.post_id
+            LEFT JOIN comments c ON p.post_id = c.post_id
+            WHERE r.repost_id = ?
+            GROUP BY
+                p.post_id, p.body, p.image_url, p.video_url,
+                p.alt_text, p.created_at, p.updated_at,
+                u.users_id, u.username, u.profile_image_url,
+                r.repost_id, ru.users_id, ru.username,
+                r.quote, r.created_at`,
+            [userId, id]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Repost not found' })
+        }
+
+        const post = rows[0]
+        post.tags = await getPostTags(post.post_id)
+
+        res.status(200).json(post)
     } catch (err) {
         next(err)
     }

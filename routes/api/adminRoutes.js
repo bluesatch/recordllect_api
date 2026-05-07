@@ -15,6 +15,7 @@ router.get('/inactive-users', auth, admin, userController.getInactiveUsers)
 router.post('/featured', auth, admin, albumController.setFeaturedAlbum)
 
 router.put('/reports/:id', auth, admin, reportController.updateReport)
+router.put('/featured/reorder', auth, admin, albumController.reorderFeatured)
 
 router.delete('/albums/:id', auth, admin, albumController.deleteAlbum)
 router.delete('/featured', auth, admin, albumController.removeFeaturedAlbum)
