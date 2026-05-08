@@ -1033,3 +1033,24 @@ exports.getInactiveUsers = async (req, res, next) => {
         next(err)
     }
 }
+
+exports.getUserByUsername = async (req, res, next)=> {
+    const { username } = req.params 
+
+    try {
+        const [ rows ] = await pool.execute(
+            `SELECT users_id FROM users
+            WHERE LOWER(username) = LOWER(?)
+            AND status = 'active'`,
+            [username]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found'})
+        }
+
+        res.status(200).json({ users_id: rows[0].users_id})
+    } catch (err) {
+        next(err)
+    }
+}

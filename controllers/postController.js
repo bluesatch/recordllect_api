@@ -35,6 +35,34 @@ const getPostLikes = async (postId, userId)=> {
     }
 }
 
+// Helper - parse @mentions from post body 
+const parseMentions = (body)=> {
+    if (!body) return 
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g
+    const matches = []
+    let match 
+    while ((match = mentionRegex.exec(body)) !== null) {
+        matches.push(match[1].toLowerCase())
+    }
+
+    return [...new Set(matches)]
+}
+
+// Helper - look up user ids for mentioned usernames
+const resolveMentions = async (usernames, authorId)=> {
+    if (usernames.length === 0) return []
+
+    const placeholders = usernames.map(()=> '?').join(',')
+    const [ rows ] = await pool.execute(
+        `SELECT users_id, username FROM users
+        WHERE LOWER(username) IN (${placeholders})
+        AND users_id != ?
+        AND status = 'active'`,
+        [...usernames, authorId]
+    )
+    return rows
+}
+
 // GET feed - posts from followed users 
 exports.getFeed = async (req, res, next) => {
     const userId = req.user.users_id
@@ -344,6 +372,33 @@ exports.createPost = async (req, res, next)=> {
                 `INSERT INTO post_tags (post_id, tag_id) VALUES ?`,
                 [tagValues]
             )
+        }
+
+        const mentionedUsernames = parseMentions(body)
+
+        if (mentionedUsernames.length > 0) {
+            const mentionedUsers = await resolveMentions(mentionedUsernames, userId)
+
+            if (mentionedUsers.length > 0) {
+                const io = req.app.get('io')
+
+                const [ author ] = await pool.execute(
+                    `SELECT username FROM users WHERE users_id = ?`,
+                    [userId]
+                )
+
+                const authorUsername = author[0]?.username || 'Someone'
+
+                for (const mentionedUser of mentionedUsers) {
+                    await createNotification(io, {
+                        recipientId: mentionedUser.users_id,
+                        senderId: userId,
+                        type: 'mention',
+                        referenceId: post_id,
+                        message: `@${authorUsername} mentioned you in a post`
+                    })
+                }
+            }
         }
 
         await con.commit()
