@@ -3,14 +3,27 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
 const http = require('http')
 const { Server } = require('socket.io')
 const jwt = require('jsonwebtoken')
-const router = require('./routes/router')
-const logger = require('./config/logger')
-
+const hpp = require('hpp')
 const app = express()
 const server = http.createServer(app)
+
+const router = require('./routes/router')
+const logger = require('./config/logger')
+const auth = require('./middleware/auth')
+const sanitizeBody = require('./middleware/sanitize')
+
+
+app.use(express.json({ limit: '10mb' }))
+app.use(sanitizeBody)
+app.use(cookieParser())
+
+app.use(hpp()) // => Prevents HTTP parameter pollution
+
 
 // SOCKET.IO SETUP 
 const io = new Server(server, {
@@ -26,11 +39,11 @@ app.set('io', io)
 // MIDDLEWARE 
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://lcoalhost:3000',
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
-app.use(express.json())
-app.use(cookieParser())
 
 // Logger middleware 
 app.use((req, res, next) => {
@@ -74,6 +87,61 @@ io.on('connection', (socket)=> {
         logger.info(`User ${userId} disconnected`)
     })
 })
+
+// SECURITY MIDDLEWARE 
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            connectSrc: ["'self'", process.env.CLIENT_URL]
+        }
+    },
+    crossOriginEmbedderPolicy: false
+}))
+
+// Global rate limit - 100 requests per 15 minutes
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { message: 'Too many requests, please try again later.'},
+    standardHeaders: true,
+    legacyHeaders: false
+})
+
+// Auth rate limit - 10 attepmts per 15 minutes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { message: 'Too many login attempts, please try again later.'},
+    standardHeaders: true,
+    legacyHeaders: false
+
+})
+
+// Discogs rate limit - 20 requests per minute 
+const discogsLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    message: { message: 'Too many Discogs requests, please slow down.'},
+    standardHeaders: true,
+    legacyHeaders: false
+})
+
+app.use('/api', globalLimiter)
+
+app.use('/api/users/login', authLimiter)
+app.use('/api/users/register', authLimiter)
+
+app.use('/api/discogs', discogsLimiter)
+
+app.get('/health', (req, res)=> {
+    res.json({ status: 'ok'})
+})
+
 
 // GLOBAL ERROR HANDLER 
 app.use((err, req, res, next)=> {

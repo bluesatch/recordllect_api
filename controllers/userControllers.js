@@ -17,7 +17,6 @@ const validatePassword = (password)=> {
     return rules.filter(rule => !rule.test).map(rule => rule.message)
 }
 
-
 // Register user
 exports.register = async (req, res, next)=> {
     const { first_name, last_name, email, username, password } = req.body
@@ -94,10 +93,19 @@ exports.login = async (req, res, next)=> {
 
         // Generate jwt 
         const token = jwt.sign(
-            { users_id: user.users_id, email: user.email, username: user.username, is_admin: user.is_admin },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h'}
-        )
+        {
+            users_id: user.users_id,
+            username: user.username,
+            is_admin: user.is_admin
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: '7d',
+            algorithm: 'HS256',
+            issuer: 'groovist'
+        }
+    )
+
 
         res.cookie('token', token, {
             httpOnly: true,

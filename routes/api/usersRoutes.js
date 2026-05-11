@@ -4,6 +4,9 @@ const admin = require('../../middleware/admin')
 const userController = require('../../controllers/userControllers')
 const postController = require('../../controllers/postController')
 
+const { verifyUserOwnership } = require('../../middleware/ownership')
+const { verify } = require('jsonwebtoken')
+
 // GET
 router.get('/search', auth, userController.searchUsers)
 router.get('/blocked', auth, userController.getBlockedUsers)
@@ -28,14 +31,14 @@ router.post('/:id/follow', auth, userController.followUser)
 router.post('/:id/block', auth, userController.blockUser)
 
 // PUT
-router.put('/:id', auth, userController.updateUser)
-router.put('/:id/deactivate', auth, userController.deactivateAccount)
+router.put('/:id', auth, verifyUserOwnership,  userController.updateUser)
+router.put('/:id/deactivate', auth,verifyUserOwnership, userController.deactivateAccount)
 router.put('/:id/reactivate', auth, admin, userController.reactivateAccount)
 router.put('/:id/now-playing', auth, userController.setNowPlaying)
 
 // DELETE
 router.delete('/:id/albums/:album_id', auth, userController.removeUserAlbum)
-router.delete('/:id/follow', auth, userController.unfollowUser)
+router.delete('/:id/follow', auth, verifyUserOwnership, userController.unfollowUser)
 router.delete('/:id/now-playing', auth, userController.clearNowPlaying)
 router.delete('/:id/block', auth, userController.unblockUser)
 

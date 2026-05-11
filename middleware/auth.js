@@ -2,17 +2,28 @@ const jwt = require('jsonwebtoken')
 
 module.exports = (req, res, next)=> {
 
-    const token = req.cookies.token
+    const token = req.cookies?.token
 
     if (!token) {
-        return res.status(401).json({ message: 'No token provided' })
+        return res.status(401).json({ message: 'Not authenticated' })
     }
 
     try {
-        const tokenDecoded = jwt.verify(token, process.env.JWT_SECRET)
-        req.user = tokenDecoded
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+            algorithms: ['HS256'],
+            issuer: 'groovist'
+        })
+
+        req.user = decoded
         next()
     } catch (err) {
-        res.status(403).json({ message: 'Invalid or expired token'})
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Session expired, please log in again' })
+        }
+
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ message: 'Invalid token' })
+        }
+        return res.status(401).json({ message: 'Not authenticated' })
     }
 }

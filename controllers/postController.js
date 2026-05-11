@@ -745,3 +745,101 @@ exports.getRepostById = async (req, res, next) => {
         next(err)
     }
 }
+
+exports.getPostsByTag = async (req, res, next) => {
+    const { tagName } = req.params
+    const userId = req.user.users_id
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 10
+    const offset = (page - 1) * limit
+
+
+    try {
+        // Verify tag exists
+        const [tagRows] = await pool.execute(
+            `SELECT tag_id, tag_name FROM tags
+            WHERE LOWER(tag_name) = LOWER(?)`,
+            [tagName]
+        )
+
+        if (tagRows.length === 0) {
+            return res.status(404).json({ message: 'Tag not found' })
+        }
+
+        const tag = tagRows[0]
+
+        const tagId = Number(tag.tag_id)
+    
+        // Fetch posts with this tag
+        const [posts] = await pool.query(
+            `SELECT
+                p.post_id,
+                p.body,
+                p.image_url,
+                p.video_url,
+                p.alt_text,
+                p.created_at,
+                p.updated_at,
+                u.users_id,
+                u.username,
+                u.profile_image_url,
+                COUNT(DISTINCT pl.like_id) AS like_count,
+                COUNT(DISTINCT c.comment_id) AS comment_count,
+                MAX(CASE WHEN pl.users_id = ? THEN 1 ELSE 0 END) AS liked_by_user,
+                0 AS is_repost
+            FROM posts p
+            JOIN users u ON p.users_id = u.users_id
+            JOIN post_tags pt ON p.post_id = pt.post_id
+            LEFT JOIN post_likes pl ON p.post_id = pl.post_id
+            LEFT JOIN comments c ON p.post_id = c.post_id
+            WHERE pt.tag_id = ?
+            AND p.users_id NOT IN (
+                SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+            )
+            GROUP BY
+                p.post_id, p.body, p.image_url, p.video_url,
+                p.alt_text, p.created_at, p.updated_at,
+                u.users_id, u.username, u.profile_image_url
+            ORDER BY p.created_at DESC
+            LIMIT ? OFFSET ?`,
+            [userId, tagId, userId, userId, Number(limit), Number(offset)]
+        )
+
+
+        // Fetch tags for each post
+        const postsWithTags = await Promise.all(
+            posts.map(async post => {
+                const tags = await getPostTags(post.post_id)
+                return { ...post, tags }
+            })
+        )
+
+        // Count total
+        const [countResult] = await pool.query(
+            `SELECT COUNT(DISTINCT p.post_id) AS total
+            FROM posts p
+            JOIN post_tags pt ON p.post_id = pt.post_id
+            WHERE pt.tag_id = ?
+            AND p.users_id NOT IN (
+                SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+            )`,
+            [tagId, userId, userId]
+        )
+
+        const total = countResult[0].total
+        const totalPages = Math.ceil(total / limit)
+
+        res.status(200).json({
+            tag: tag.tag_name,
+            tag_id: tag.tag_id,
+            posts: postsWithTags,
+            total,
+            totalPages,
+            page
+        })
+    } catch (err) {
+        next(err)
+    }
+}
