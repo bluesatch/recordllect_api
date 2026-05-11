@@ -2,8 +2,10 @@
 const pool = require('../config/dbconfig')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
 const { createNotification } = require('./notificationController')
 const logger = require('../config/logger')
+const { sendVerificationEmail, sendResendVerificationEmail, sendPasswordResetEmail } = require('../config/mailer')
 
 // Validate password
 const validatePassword = (password)=> {
@@ -19,7 +21,11 @@ const validatePassword = (password)=> {
 
 // Register user
 exports.register = async (req, res, next)=> {
-    const { first_name, last_name, email, username, password } = req.body
+    const { 
+        first_name, last_name, email, username, password,
+        address_line_1, address_line_2, city, state,
+        postal_code, country, profile_image_url
+    } = req.body
 
     // input validation
     if (!first_name || !last_name || !email || !username || !password) {
@@ -42,15 +48,60 @@ exports.register = async (req, res, next)=> {
 
     try {
         // Hash the password 
-        const password_hash = await bcrypt.hash(password, 10)
+        // const password_hash = await bcrypt.hash(password, 10)
 
-        const [ result ] = await pool.execute(
-            `INSERT INTO users (first_name, last_name, email, username, password_hash)
-            VALUES (?, ?, ?, ?, ?)`,
-            [ first_name, last_name, email, username, password_hash ]
+        // const [ result ] = await pool.execute(
+        //     `INSERT INTO users (first_name, last_name, email, username, password_hash)
+        //     VALUES (?, ?, ?, ?, ?)`,
+        //     [ first_name, last_name, email, username, password_hash ]
+        // )
+
+        // res.status(201).json({ message: 'User registered successfully', users_id: result.insertId})
+        const [existing] = await pool.execute(
+            `SELECT users_id FROM users
+            WHERE email = ? OR username = ?`,
+            [email, username]
         )
 
-        res.status(201).json({ message: 'User registered successfully', users_id: result.insertId})
+        if (existing.length > 0) {
+            return res.status(409).json({
+                message: 'Email or username already in use'
+            })
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12)
+
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex')
+        const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+        const [result] = await pool.execute(
+            `INSERT INTO users (
+                first_name, last_name, email, username, password_hash,
+                address_line_1, address_line_2, city, state,
+                postal_code, country, profile_image_url,
+                verification_token, verification_token_expires,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                first_name, last_name, email, username, hashedPassword,
+                address_line_1 || null, address_line_2 || null,
+                city || null, state || null, postal_code || null,
+                country || null, profile_image_url || null,
+                verificationToken, tokenExpires, 'pending_verification'
+            ]
+        )
+
+        try {
+            await sendVerificationEmail(email, username, verificationToken)
+        } catch (emailErr) {
+            console.error('Failed to send verification email:', emailErr)
+            // Don't fail registration if email fails
+        }
+
+        res.status(201).json({
+            message: 'User registered successfully. Please check your email to verify your account.'
+        })
     } catch (err) {
         // Handle duplicate email
         if (err.code === 'ER_DUP_ENTRY') {
@@ -166,7 +217,7 @@ exports.getUserById = async (req, res, next) => {
                 postal_code,
                 country,
                 status,
-                email_verified_at,
+                is_verified,
                 profile_image_url,
                 is_admin,
                 created_at,
@@ -354,6 +405,7 @@ exports.getMe = async (req, res, next)=> {
                 email_verified_at,
                 profile_image_url,
                 is_admin,
+                is_verified,
                 created_at,
                 updated_at
             FROM users
@@ -999,7 +1051,7 @@ exports.reactivateAccount = async (req, res, next)=> {
     try {
         const [ result ] = await pool.execute(
             `UPDATE users SET 
-                status = 'active'
+                status = 'active',
                 email_verified_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             WHERE users_id = ?`,
@@ -1058,6 +1110,262 @@ exports.getUserByUsername = async (req, res, next)=> {
         }
 
         res.status(200).json({ users_id: rows[0].users_id})
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.verifyEmail = async (req, res, next) => {
+    const { token } = req.params
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT users_id, username, verification_token_expires
+            FROM users
+            WHERE verification_token = ?
+            AND is_verified = 0`,
+            [token]
+        )
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                message: 'Invalid or already used verification link'
+            })
+        }
+
+        const user = rows[0]
+
+        // Check if token has expired
+        if (new Date() > new Date(user.verification_token_expires)) {
+            return res.status(400).json({
+                message: 'Verification link has expired. Please request a new one.',
+                expired: true
+            })
+        }
+
+        // Mark as verified and clear token
+        await pool.execute(
+            `UPDATE users
+            SET is_verified = 1,
+                status = 'active',
+                verification_token = NULL,
+                verification_token_expires = NULL
+            WHERE users_id = ?`,
+            [user.users_id]
+        )
+
+        res.status(200).json({
+            message: 'Email verified successfully! You can now log in.'
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+exports.resendVerification = async (req, res, next) => {
+    const userId = req.user.users_id
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT email, username, is_verified
+            FROM users WHERE users_id = ?`,
+            [userId]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+
+        const user = rows[0]
+
+        if (user.is_verified) {
+            return res.status(400).json({
+                message: 'Email is already verified'
+            })
+        }
+
+        // Generate new token
+        const verificationToken = crypto.randomBytes(32).toString('hex')
+        const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+        await pool.execute(
+            `UPDATE users
+            SET verification_token = ?,
+                verification_token_expires = ?
+            WHERE users_id = ?`,
+            [verificationToken, tokenExpires, userId]
+        )
+
+        await sendResendVerificationEmail(
+            user.email,
+            user.username,
+            verificationToken
+        )
+
+        res.status(200).json({
+            message: 'Verification email sent. Please check your inbox.'
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// CHANGE PASSWORD — authenticated user
+exports.changePassword = async (req, res, next) => {
+    const userId = req.user.users_id
+    const { current_password, new_password } = req.body
+
+    if (!current_password || !new_password) {
+        return res.status(400).json({
+            message: 'Current password and new password are required'
+        })
+    }
+
+    const passwordErrors = validatePassword(new_password)
+    if (passwordErrors.length > 0) {
+        return res.status(400).json({
+            message: `Password must contain: ${passwordErrors.join(', ')}`
+        })
+    }
+
+    try {
+        // Get current password hash
+        const [rows] = await pool.execute(
+            `SELECT password_hash FROM users WHERE users_id = ?`,
+            [userId]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+
+        // Verify current password
+        const match = await bcrypt.compare(current_password, rows[0].password_hash)
+        if (!match) {
+            return res.status(401).json({ message: 'Current password is incorrect' })
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(new_password, 12)
+
+        await pool.execute(
+            `UPDATE users SET password_hash = ? WHERE users_id = ?`,
+            [hashedPassword, userId]
+        )
+
+        res.status(200).json({ message: 'Password changed successfully' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// FORGOT PASSWORD — request reset email
+exports.forgotPassword = async (req, res, next) => {
+    const { email } = req.body
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required' })
+    }
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT users_id, username FROM users
+            WHERE email = ? AND status = 'active'`,
+            [email]
+        )
+
+        // Always return success even if email not found
+        // Prevents email enumeration attacks
+        if (rows.length === 0) {
+            return res.status(200).json({
+                message: 'If that email exists you will receive a reset link shortly.'
+            })
+        }
+
+        const user = rows[0]
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex')
+        const tokenExpires = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+        await pool.execute(
+            `UPDATE users
+            SET reset_token = ?,
+                reset_token_expires = ?
+            WHERE users_id = ?`,
+            [resetToken, tokenExpires, user.users_id]
+        )
+
+        // Send reset email
+        try {
+            await sendPasswordResetEmail(email, user.username, resetToken)
+        } catch (emailErr) {
+            console.error('Failed to send reset email:', emailErr)
+        }
+
+        res.status(200).json({
+            message: 'If that email exists you will receive a reset link shortly.'
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// RESET PASSWORD — via token from email
+exports.resetPassword = async (req, res, next) => {
+    const { token } = req.params
+    const { new_password } = req.body
+
+    if (!new_password) {
+        return res.status(400).json({ message: 'New password is required' })
+    }
+
+    const passwordErrors = validatePassword(new_password)
+    if (passwordErrors.length > 0) {
+        return res.status(400).json({
+            message: `Password must contain: ${passwordErrors.join(', ')}`
+        })
+    }
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT users_id, username, reset_token_expires
+            FROM users
+            WHERE reset_token = ?`,
+            [token]
+        )
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                message: 'Invalid or already used reset link'
+            })
+        }
+
+        const user = rows[0]
+
+        // Check expiry
+        if (new Date() > new Date(user.reset_token_expires)) {
+            return res.status(400).json({
+                message: 'Reset link has expired. Please request a new one.',
+                expired: true
+            })
+        }
+
+        // Hash new password and clear reset token
+        const hashedPassword = await bcrypt.hash(new_password, 12)
+
+        await pool.execute(
+            `UPDATE users
+            SET password_hash = ?,
+                reset_token = NULL,
+                reset_token_expires = NULL
+            WHERE users_id = ?`,
+            [hashedPassword, user.users_id]
+        )
+
+        res.status(200).json({
+            message: 'Password reset successfully. You can now log in.'
+        })
     } catch (err) {
         next(err)
     }
