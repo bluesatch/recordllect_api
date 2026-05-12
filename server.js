@@ -40,7 +40,6 @@ const allowedOrigins = [
     'http://localhost:3000',
     'https://groovist.co',
     'https://www.groovist.co',
-    'https://recordllect-fe.vercel.app'
 ]
 
 // MIDDLEWARE 
