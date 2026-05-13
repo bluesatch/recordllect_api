@@ -139,7 +139,7 @@ exports.getMessages = async (req, res, next) => {
         }
 
         // Fetch messages
-        const [messages] = await pool.execute(
+        const [messages] = await pool.query(
             `SELECT
                 m.message_id,
                 m.conversation_id,
