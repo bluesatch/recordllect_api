@@ -123,7 +123,9 @@ const io = new Server(server, {
     cors: {
         origin: allowedOrigins,
         credentials: true
-    }
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true
 })
 
 app.set('io', io)
