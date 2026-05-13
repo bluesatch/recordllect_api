@@ -44,7 +44,7 @@ const allowedOrigins = [
 
 // MIDDLEWARE 
 app.use(cors({
-    origin: (origin, callback)=> {
+    origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true)
         } else {
@@ -53,10 +53,10 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,      
+    optionsSuccessStatus: 204     
 }))
-
-app.options('*', cors())
 
 // Logger middleware 
 app.use((req, res, next) => {
