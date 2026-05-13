@@ -481,7 +481,35 @@ exports.getUserAlbums = async (req, res, next)=> {
         'added_asc': 'ua.added_at ASC'
     }
 
-    const orderBy = sortMap[sort] || 'ua.added_at DESC'
+    let orderBy = 'ua.added_at DESC'
+
+    switch(sort) {
+        case 'title_asc':
+            orderBy = 'a.title ASC'
+            break
+        case 'title_desc':
+            orderBy = 'a.title DESC'
+            break
+        case 'year_desc':
+            orderBy = 'a.release_year DESC'
+            break
+        case 'year_asc':
+            orderBy = 'a.release_year ASC'
+            break
+        case 'added_desc':
+            orderBy = 'ua.added_at DESC'
+            break
+        case 'added_asc':
+            orderBy = 'ua.added_at ASC'
+            break
+        case 'performer_asc':
+            orderBy = 'v.performer_name ASC'
+            break
+        case 'performer_desc':
+            orderBy = 'v.performer_name DESC'
+            break
+    }
+
 
     try {
         const [ countResult ] = await pool.execute(
