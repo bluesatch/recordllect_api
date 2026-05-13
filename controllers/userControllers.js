@@ -160,8 +160,8 @@ exports.login = async (req, res, next)=> {
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', // secure: true will block cookies in development
-            sameSite: 'Lax',
+            secure: true, // secure: true will block cookies in development
+            sameSite: 'none',
             // Lax allows cookies to be sent on same-site requests and top-level navigations
             maxAge: 24 * 60 * 60 * 1000
         })
