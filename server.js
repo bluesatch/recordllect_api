@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken')
 const hpp = require('hpp')
 
 const app = express()
+app.set('trust proxy', 1)
 const server = http.createServer(app)
 
 const router = require('./routes/router')
