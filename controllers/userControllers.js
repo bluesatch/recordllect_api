@@ -455,6 +455,7 @@ exports.getMe = async (req, res, next)=> {
 
         user.now_playing = nowPlaying[0] || null
 
+        console.log('getMe user object:', JSON.stringify(user))
         res.status(200).json(user)
 
     } catch (err) {
