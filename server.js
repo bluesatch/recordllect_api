@@ -56,6 +56,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
+app.options('*', cors())
 
 // Logger middleware 
 app.use((req, res, next) => {
