@@ -63,6 +63,9 @@ router.use('/notifications', notificationsRoutes)
 const messagesRoutes = require('./api/messagesRoutes')
 router.use('/conversations', messagesRoutes)
 
+const uploadRoutes = require('./api/uploadRoutes')
+router.use('/upload', uploadRoutes)
+
 /** ERROR HANDLING **/
 router.use((req, res)=> {
     res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found` })

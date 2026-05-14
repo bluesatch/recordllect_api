@@ -7,6 +7,12 @@ const xss = require('xss')
  */
 
 const sanitizeBody = (req, res, next)=> {
+
+    // Skip multipart form data - multer handles these 
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+        return next()
+    }
+
     if (!req.body || typeof req.body !== 'object') {
         return next()
     }
