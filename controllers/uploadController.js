@@ -40,6 +40,7 @@ exports.uploadVideo = async (req, res, next)=> {
 
 // POST /upload/avatar - upload profile image 
 exports.uploadAvatar = async (req, res, next)=> {
+    console.log(req.file.fileSize)
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'No image file provided' })
