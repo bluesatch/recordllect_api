@@ -69,7 +69,7 @@ app.use(helmet({
 // ============================================
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 150,
+    max: 500,
     message: { message: 'Too many requests, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false
@@ -77,7 +77,7 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 50,
+    max: 10,
     message: { message: 'Too many login attempts, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false
