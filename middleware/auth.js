@@ -4,6 +4,14 @@ module.exports = (req, res, next)=> {
 
     const token = req.cookies?.token
 
+    // Fall back to Authorization header (mobile)
+    if (!token) {
+        const authHeader = req.headers.authorization
+        if (authHeader?.startsWith('Bearer')) {
+            token = authHeader.substring(7)
+        }
+    }
+
     if (!token) {
         return res.status(401).json({ message: 'Not authenticated' })
     }
