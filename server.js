@@ -91,11 +91,18 @@ const discogsLimiter = rateLimit({
     legacyHeaders: false
 })
 
+const collectionImportLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    message: { message: 'Too many collection imports. Please wait before trying again.' }
+})
+
 app.use('/api', globalLimiter)
 app.use('/api/users/login', authLimiter)
 app.use('/api/users/register', authLimiter)
 app.use('/api/users/forgot-password', authLimiter)
 app.use('/api/discogs', discogsLimiter)
+app.use('/api/discogs/import-collection', collectionImportLimiter)
 
 // ============================================
 // 4. BODY PARSING & SECURITY
