@@ -93,8 +93,10 @@ const discogsLimiter = rateLimit({
 
 const collectionImportLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    max: 3,
-    message: { message: 'Too many collection imports. Please wait before trying again.' }
+    max: 10,
+    message: { message: 'Too many collection imports. Please wait an hour before trying again.' },
+    standardHeaders: true,
+    legacyHeader: false
 })
 
 app.use('/api', globalLimiter)
