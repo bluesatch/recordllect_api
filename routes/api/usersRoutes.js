@@ -43,7 +43,7 @@ router.put('/:id/now-playing', auth, userController.setNowPlaying)
 
 // DELETE
 router.delete('/:id/albums/:album_id', auth, userController.removeUserAlbum)
-router.delete('/:id/follow', auth, verifyUserOwnership, userController.unfollowUser)
+router.delete('/:id/follow', auth, userController.unfollowUser)
 router.delete('/:id/now-playing', auth, userController.clearNowPlaying)
 router.delete('/:id/block', auth, userController.unblockUser)
 
