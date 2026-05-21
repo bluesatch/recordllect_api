@@ -472,6 +472,7 @@ exports.getUserAlbums = async (req, res, next)=> {
     const limit = parseInt(req.query.limit) || 60
     const offset = (page - 1) * limit
     const sort = req.query.sort || 'added_desc'
+    const search = req.query.search?.trim() || ''
 
     const sortMap = {
         'title_asc': 'a.title ASC',
@@ -479,43 +480,57 @@ exports.getUserAlbums = async (req, res, next)=> {
         'year_asc': 'a.release_year ASC',
         'year_desc': 'a.release_year DESC',
         'added_desc': 'ua.added_at DESC',
-        'added_asc': 'ua.added_at ASC'
+        'added_asc': 'ua.added_at ASC',
+        'performer_asc': 'v.performer_name ASC',
+        'performer_desc': 'v.performer_name DESC'
     }
 
-    let orderBy = 'ua.added_at DESC'
+    let orderBy = sortMap[sort] || 'ua.added_at DESC'
 
-    switch(sort) {
-        case 'title_asc':
-            orderBy = 'a.title ASC'
-            break
-        case 'title_desc':
-            orderBy = 'a.title DESC'
-            break
-        case 'year_desc':
-            orderBy = 'a.release_year DESC'
-            break
-        case 'year_asc':
-            orderBy = 'a.release_year ASC'
-            break
-        case 'added_desc':
-            orderBy = 'ua.added_at DESC'
-            break
-        case 'added_asc':
-            orderBy = 'ua.added_at ASC'
-            break
-        case 'performer_asc':
-            orderBy = 'v.performer_name ASC'
-            break
-        case 'performer_desc':
-            orderBy = 'v.performer_name DESC'
-            break
-    }
+    // switch(sort) {
+    //     case 'title_asc':
+    //         orderBy = 'a.title ASC'
+    //         break
+    //     case 'title_desc':
+    //         orderBy = 'a.title DESC'
+    //         break
+    //     case 'year_desc':
+    //         orderBy = 'a.release_year DESC'
+    //         break
+    //     case 'year_asc':
+    //         orderBy = 'a.release_year ASC'
+    //         break
+    //     case 'added_desc':
+    //         orderBy = 'ua.added_at DESC'
+    //         break
+    //     case 'added_asc':
+    //         orderBy = 'ua.added_at ASC'
+    //         break
+    //     case 'performer_asc':
+    //         orderBy = 'v.performer_name ASC'
+    //         break
+    //     case 'performer_desc':
+    //         orderBy = 'v.performer_name DESC'
+    //         break
+    // }
 
 
     try {
-        const [ countResult ] = await pool.execute(
-            `SELECT COUNT(*) AS total FROM user_albums WHERE users_id = ?`,
-            [userId]
+        const searchCondition = search 
+            ? `AND (a.title LIKE ? OR v.performer_name LIKE ? or v.label_name LIKE ?)`
+            : ''
+        
+        const searchParams = search
+            ? [`%${search}%`, `%${search}%`, `%${search}%`]
+            : []
+
+        const [ countResult ] = await pool.query(
+            `SELECT COUNT(*) AS total
+            FROM user_albums ua 
+            JOIN albums a ON ua.album_id = a.album_id
+            JOIN v_album_details v ON a.album_id = v.album_id
+            WHERE ua.users_id = ? ${searchCondition}`,
+            [userId, ...searchParams]
         )
 
         const total = countResult[0].total
@@ -537,10 +552,10 @@ exports.getUserAlbums = async (req, res, next)=> {
             FROM user_albums ua
             JOIN albums a ON ua.album_id = a.album_id
             JOIN v_album_details v ON a.album_id = v.album_id
-            WHERE ua.users_id = ?
+            WHERE ua.users_id = ? ${searchCondition}
             ORDER BY ${orderBy}
             LIMIT ? OFFSET ?`,
-            [Number(id), Number(limit), Number(offset)]
+            [Number(id), ...searchParams,  Number(limit), Number(offset)]
         )
 
         res.status(200).json({
