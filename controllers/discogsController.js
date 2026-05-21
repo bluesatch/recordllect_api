@@ -10,7 +10,7 @@ const DISCOGS_HEADERS = {
 }
 
 // Helper - fetch a single page of user's Discogs collection 
-const fetchCollectionPage = async (getUserByUsername, page = 1) => {
+const fetchCollectionPage = async (username, page = 1) => {
     const response = await fetch(
         `${DISCOGS_BASE}/users/${username}/collection/folders/0/releases?page=${page}&per_page=100&token=${DISCOGS_TOKEN}`,
         {
@@ -430,9 +430,10 @@ exports.importTracksForAlbum = async (req, res, next) => {
 // POST /discogs/import-collection 
 exports.importCollection = async (req, res, next) => {
     const { discogs_username } = req.body
+    const cleanUsername = discogs_username.trim()
     const userId = req.user.users_id
 
-    if (!discogs_username?.trim()) {
+    if (!cleanUsername) {
         return res.status(400).json({
             message: 'Discogs username is required'
         })
@@ -440,7 +441,7 @@ exports.importCollection = async (req, res, next) => {
 
     try {
         // First fetch page 1 to get total count
-        const firstPage = await fetchCollectionPage(discogs_username.trim(), 1)
+        const firstPage = await fetchCollectionPage(cleanUsername, 1)
         const total = firstPage.pagination.items
         const totalPages = firstPage.pagination.pages
 
@@ -463,7 +464,7 @@ exports.importCollection = async (req, res, next) => {
         // Fetch remaining pages
         for (let page = 2; page <= totalPages; page++) {
             await sleep(1000) // 1 second between page requests
-            const pageData = await fetchCollectionPage(discogs_username.trim(), page)
+            const pageData = await fetchCollectionPage(cleanUsername, page)
             allReleases.push(...pageData.releases)
         }
          // Process each release
