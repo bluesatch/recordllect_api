@@ -487,34 +487,6 @@ exports.getUserAlbums = async (req, res, next)=> {
 
     let orderBy = sortMap[sort] || 'ua.added_at DESC'
 
-    // switch(sort) {
-    //     case 'title_asc':
-    //         orderBy = 'a.title ASC'
-    //         break
-    //     case 'title_desc':
-    //         orderBy = 'a.title DESC'
-    //         break
-    //     case 'year_desc':
-    //         orderBy = 'a.release_year DESC'
-    //         break
-    //     case 'year_asc':
-    //         orderBy = 'a.release_year ASC'
-    //         break
-    //     case 'added_desc':
-    //         orderBy = 'ua.added_at DESC'
-    //         break
-    //     case 'added_asc':
-    //         orderBy = 'ua.added_at ASC'
-    //         break
-    //     case 'performer_asc':
-    //         orderBy = 'v.performer_name ASC'
-    //         break
-    //     case 'performer_desc':
-    //         orderBy = 'v.performer_name DESC'
-    //         break
-    // }
-
-
     try {
         const searchCondition = search 
             ? `AND (a.title LIKE ? OR v.performer_name LIKE ? or v.label_name LIKE ?)`
@@ -694,24 +666,109 @@ exports.checkUserAlbum = async (req, res, next)=> {
 }
 
 // SEARCH USERS
-exports.searchUsers = async (req, res, next)=> {
+exports.searchUsers = async (req, res, next) => {
     const search = req.query.search || ''
     const city = req.query.city || ''
     const state = req.query.state || ''
     const country = req.query.country || ''
     const genres = req.query.genres ? req.query.genres.split(',').map(Number) : []
     const context = req.query.context || 'discover'
-    const requesterId = req.user.users_id 
+    const requesterId = req.user.users_id
 
     try {
 
+        // ============================================================
+        // NO SEARCH PARAMS — return personalized suggestions
+        // ============================================================
+        if (!search && !city && !state && !country && genres.length === 0) {
+
+            // Get current user's genres and location
+            const [currentUser] = await pool.execute(
+                `SELECT city, state, country FROM users WHERE users_id = ?`,
+                [requesterId]
+            )
+
+            const [userGenres] = await pool.execute(
+                `SELECT genre_id FROM user_genres WHERE users_id = ?`,
+                [requesterId]
+            )
+
+            const genreIds = userGenres.map(g => g.genre_id)
+            const userCity = currentUser[0]?.city || ''
+            const userState = currentUser[0]?.state || ''
+
+            // Build genre match subquery
+            const genreSubquery = genreIds.length > 0
+                ? `(SELECT COUNT(*) FROM user_genres ug2
+                   WHERE ug2.users_id = u.users_id
+                   AND ug2.genre_id IN (${genreIds.map(() => '?').join(',')}))`
+                : `0`
+
+            const [suggestions] = await pool.query(
+                `SELECT DISTINCT
+                    u.users_id,
+                    u.username,
+                    u.first_name,
+                    u.last_name,
+                    u.city,
+                    u.state,
+                    u.country,
+                    u.bio,
+                    u.profile_image_url,
+                    ${genreSubquery} AS shared_genres,
+                    GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres,
+                    CASE
+                        WHEN u.city = ? AND u.state = ? THEN 2
+                        WHEN u.state = ? THEN 1
+                        ELSE 0
+                    END AS location_score
+                FROM users u
+                LEFT JOIN user_genres ug ON u.users_id = ug.users_id
+                LEFT JOIN genres g ON ug.genre_id = g.genre_id
+                WHERE u.users_id != ?
+                AND u.status = 'active'
+                AND u.users_id NOT IN (
+                    SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+                    UNION
+                    SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+                )
+                AND u.users_id NOT IN (
+                    SELECT following_id FROM follows WHERE follower_id = ?
+                )
+                GROUP BY
+                    u.users_id, u.username, u.first_name, u.last_name,
+                    u.city, u.state, u.country, u.bio, u.profile_image_url
+                ORDER BY shared_genres DESC, location_score DESC, RAND()
+                LIMIT 20`,
+                [
+                    ...genreIds,           // for genre subquery
+                    userCity,              // city match
+                    userState,             // city + state match
+                    userState,             // state only match
+                    requesterId,           // exclude self
+                    requesterId,           // blocked check
+                    requesterId,           // blocked check
+                    requesterId,           // not already following
+                ]
+            )
+
+            return res.status(200).json({
+                users: suggestions,
+                type: 'suggestions'
+            })
+        }
+
+        // ============================================================
+        // SEARCH PARAMS — regular filtered search
+        // ============================================================
         const conditions = []
         const params = []
-        
-        // Exclude self 
+
+        // Exclude self
         conditions.push(`u.users_id != ?`)
         params.push(requesterId)
 
+        // Exclude blocked users
         conditions.push(`u.users_id NOT IN (
             SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
             UNION
@@ -719,6 +776,7 @@ exports.searchUsers = async (req, res, next)=> {
         )`)
         params.push(requesterId, requesterId)
 
+        // In discover context — exclude already following
         if (context === 'discover') {
             conditions.push(`u.users_id NOT IN (
                 SELECT following_id FROM follows WHERE follower_id = ?
@@ -729,46 +787,44 @@ exports.searchUsers = async (req, res, next)=> {
         // Active users only
         conditions.push(`u.status = 'active'`)
 
-        // Search by username 
+        // Search by username
         if (search) {
             conditions.push(`u.username LIKE ?`)
             params.push(`%${search}%`)
         }
 
-        // Filter by city 
+        // Filter by city
         if (city) {
             conditions.push(`u.city LIKE ?`)
             params.push(`%${city}%`)
         }
 
-        // Filter by state 
+        // Filter by state
         if (state) {
             conditions.push(`u.state LIKE ?`)
             params.push(`%${state}%`)
         }
 
-        // Filter by country 
+        // Filter by country
         if (country) {
             conditions.push(`u.country LIKE ?`)
             params.push(`%${country}%`)
         }
 
-        // Filter by genres - user must have ALL selected genres 
+        // Filter by genres — user must have ALL selected genres
         if (genres.length > 0) {
             conditions.push(`(
-                SELECT COUNT(*) FROM user_genres ug 
-                WHERE ug.users_id = u.users_id 
+                SELECT COUNT(*) FROM user_genres ug
+                WHERE ug.users_id = u.users_id
                 AND ug.genre_id IN (${genres.map(() => '?').join(',')})
             ) = ?`)
             params.push(...genres, genres.length)
         }
 
-        
-
         const whereClause = `WHERE ${conditions.join(' AND ')}`
 
-        const [ rows ] = await pool.query(
-            `SELECT 
+        const [rows] = await pool.query(
+            `SELECT
                 u.users_id,
                 u.username,
                 u.first_name,
@@ -780,25 +836,22 @@ exports.searchUsers = async (req, res, next)=> {
                 u.profile_image_url,
                 GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
             FROM users u
-            LEFT JOIN user_genres ug ON u.users_id = ug.users_id 
-            LEFT JOIN genres g ON ug.genre_id = g.genre_id 
+            LEFT JOIN user_genres ug ON u.users_id = ug.users_id
+            LEFT JOIN genres g ON ug.genre_id = g.genre_id
             ${whereClause}
-            GROUP BY 
-                u.users_id,
-                u.username,
-                u.first_name,
-                u.last_name,
-                u.city,
-                u.state,
-                u.country,
-                u.bio,
-                u.profile_image_url
-            ORDER BY u.username ASC 
+            GROUP BY
+                u.users_id, u.username, u.first_name, u.last_name,
+                u.city, u.state, u.country, u.bio, u.profile_image_url
+            ORDER BY u.username ASC
             LIMIT 20`,
             params
         )
 
-        res.status(200).json({ users: rows })
+        res.status(200).json({
+            users: rows,
+            type: 'search'
+        })
+
     } catch (err) {
         next(err)
     }
