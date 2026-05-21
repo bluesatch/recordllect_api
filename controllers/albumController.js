@@ -124,7 +124,7 @@ exports.getAllAlbums = async (req, res, next) => {
         const conditions = []
         const params = []
 
-        if (search) {
+        if (search && search.trim()) {
             conditions.push(`(a.title LIKE ? OR v.performer_name LIKE ? OR l.label_name LIKE ?)`)
             params.push(`%${search}%`, `%${search}%`, `%${search}%`)
         }
