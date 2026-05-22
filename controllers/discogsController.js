@@ -429,7 +429,7 @@ exports.importTracksForAlbum = async (req, res, next) => {
 
 // POST /discogs/import-collection 
 exports.importCollection = async (req, res, next) => {
-    const { discogs_username } = req.body
+    const { discogs_username, start_page = 1 } = req.body
     const cleanUsername = discogs_username.trim()
     const userId = req.user.users_id
 
@@ -439,9 +439,11 @@ exports.importCollection = async (req, res, next) => {
         })
     }
 
+    const MAX_PAGES = 5
+
     try {
         // First fetch page 1 to get total count
-        const firstPage = await fetchCollectionPage(cleanUsername, 1)
+        const firstPage = await fetchCollectionPage(cleanUsername, start_page)
         const total = firstPage.pagination.items
         const totalPages = firstPage.pagination.pages
 
@@ -458,11 +460,12 @@ exports.importCollection = async (req, res, next) => {
         let already_owned = 0
         let failed = 0
 
+        const endPage = Math.min(totalPages, start_page + MAX_PAGES - 1)
         // Process all releases across all pages
         const allReleases = [...firstPage.releases]
 
         // Fetch remaining pages
-        for (let page = 2; page <= totalPages; page++) {
+        for (let page = start_page + 1; page <= endPage; page++) {
             await sleep(1000) // 1 second between page requests
             const pageData = await fetchCollectionPage(cleanUsername, page)
             allReleases.push(...pageData.releases)
@@ -478,7 +481,7 @@ exports.importCollection = async (req, res, next) => {
                 }
 
                 // Check if album already exists in Groovist by discogs_id
-                const [existingAlbum] = await pool.execute(
+                const [existingAlbum] = await pool.query(
                     `SELECT album_id FROM albums WHERE discogs_id = ?`,
                     [discogsId]
                 )
@@ -630,12 +633,20 @@ exports.importCollection = async (req, res, next) => {
             }
         }
 
+        // Calculate next page 
+        const nextPage = endPage < totalPages ? endPage + 1 : null 
+
         res.status(200).json({
-            message: `Collection imported successfully!`,
+            message: nextPage 
+                ? `Batch imported! ${totalPages - endPage} pages remaining.`
+                : 'Collection fully imported!',
             imported,
             already_owned,
             failed,
-            total: allReleases.length
+            total,
+            total_pages: totalPages,
+            current_page: endPage,
+            next_page: nextPage // null => fully imported
         })
 
     } catch (err) {
