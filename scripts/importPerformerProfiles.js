@@ -66,11 +66,11 @@ const importPerformerProfiles = async () => {
                 ar.alias,
                 ar.bio,
                 p.performer_id,
-                p.profile_image_url
+                ar.profile_image_url
             FROM artists ar
             JOIN performers p ON ar.performer_id = p.performer_id
             WHERE ar.discogs_id IS NOT NULL
-            AND (p.profile_image_url IS NULL OR ar.bio IS NULL)
+            AND (ar.profile_image_url IS NULL OR ar.bio IS NULL)
             ORDER BY ar.artist_id ASC`
         )
 
@@ -82,11 +82,11 @@ const importPerformerProfiles = async () => {
                 b.band_name,
                 b.bio,
                 p.performer_id,
-                p.profile_image_url
+                b.profile_image_url
             FROM bands b
             JOIN performers p ON b.performer_id = p.performer_id
             WHERE b.discogs_id IS NOT NULL
-            AND (p.profile_image_url IS NULL OR b.bio IS NULL)
+            AND (b.profile_image_url IS NULL OR b.bio IS NULL)
             ORDER BY b.band_id ASC`
         )
 
@@ -106,7 +106,7 @@ const importPerformerProfiles = async () => {
             const artist = artists[i]
 
             process.stdout.write(
-                `[${i + 1}/${artists.length}] "${artist.alias}"...`
+                `[${i + 1}/${artist.length}] "${artist.alias}"...`
             )
 
             const data = await fetchArtist(artist.discogs_id)
@@ -132,11 +132,11 @@ const importPerformerProfiles = async () => {
             }
 
             // Update profile image
-            if (imageUrl && !artist.profile_image_url) {
+            if (imageUrl && !artists.profile_image_url) {
                 await pool.query(
-                    `UPDATE performers SET profile_image_url = ?
-                    WHERE performer_id = ?`,
-                    [imageUrl, artist.performer_id]
+                    `UPDATE artists SET profile_image_url = ?
+                    WHERE artist_id = ?`,
+                    [imageUrl, artist.artist_id]
                 )
                 changes.push('image')
             }
@@ -188,9 +188,9 @@ const importPerformerProfiles = async () => {
             // Update profile image
             if (imageUrl && !band.profile_image_url) {
                 await pool.query(
-                    `UPDATE performers SET profile_image_url = ?
-                    WHERE performer_id = ?`,
-                    [imageUrl, band.performer_id]
+                    `UPDATE bands SET profile_image_url = ?
+                    WHERE band_id = ?`,
+                    [imageUrl, band.band_id]
                 )
                 changes.push('image')
             }
