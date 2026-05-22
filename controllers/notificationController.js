@@ -1,6 +1,8 @@
 const pool = require('../config/dbconfig')
 const logger = require('../config/logger')
 
+const { sendPushNotification } = require('../config/pushNotifications')
+
 // Helper — create and emit a notification
 const createNotification = async (io, {
     recipientId,
@@ -14,38 +16,56 @@ const createNotification = async (io, {
 
     try {
         const [result] = await pool.execute(
-            `INSERT INTO notifications 
+            `INSERT INTO notifications
             (recipient_id, sender_id, type, reference_id, message)
             VALUES (?, ?, ?, ?, ?)`,
             [recipientId, senderId, type, referenceId || null, message]
         )
 
-        // Fetch the full notification with sender info
+        const notificationId = result.insertId
+
+        // Fetch full notification with sender info
         const [rows] = await pool.execute(
             `SELECT
-                n.notification_id,
-                n.type,
-                n.reference_id,
-                n.message,
-                n.is_read,
-                n.created_at,
-                u.users_id AS sender_id,
+                n.*,
                 u.username AS sender_username,
                 u.profile_image_url AS sender_image
             FROM notifications n
             JOIN users u ON n.sender_id = u.users_id
             WHERE n.notification_id = ?`,
-            [result.insertId]
+            [notificationId]
         )
 
-        // Emit to recipient's room
-        if (io && rows.length > 0) {
-            io.to(`user_${recipientId}`).emit('notification', rows[0])
+        const notification = rows[0]
+
+        // Send real-time via Socket.io
+        io.to(`user_${recipientId}`).emit('notification', notification)
+
+        // Send push notification
+        const [recipientRows] = await pool.execute(
+            `SELECT push_token FROM users WHERE users_id = ?`,
+            [recipientId]
+        )
+
+        const pushToken = recipientRows[0]?.push_token
+
+        if (pushToken) {
+            await sendPushNotification(
+                pushToken,
+                'Groovist',
+                message,
+                {
+                    type,
+                    reference_id: referenceId,
+                    notification_id: notificationId
+                }
+            )
         }
 
-        return rows[0]
+        return notification
+
     } catch (err) {
-        logger.error('Failed to create notification:', {error: err.message})
+        console.error('Failed to create notification:', { error: err.message })
     }
 }
 
