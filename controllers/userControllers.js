@@ -1468,3 +1468,24 @@ exports.resetPassword = async (req, res, next) => {
         next(err)
     }
 }
+
+//  Save push token for push notifications 
+exports.savePushToken = async (req, res, next)=> {
+    const userId = req.user.users_id 
+    const { push_token } = req.body 
+
+    if (!push_token) {
+        return res.status(400).json({ message: 'Push token is required' })
+    }
+
+    try {
+        await pool.execute(
+            `UPDATE users SET push_token = ? WHERE users_id = ?`,
+            [push_token, userId]
+        )
+
+        res.status(200).json({ message: 'Push token saved'})
+    } catch (err) {
+        next(err)
+    }
+}
