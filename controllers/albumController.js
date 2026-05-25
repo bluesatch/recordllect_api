@@ -145,24 +145,25 @@ exports.getAllAlbums = async (req, res, next) => {
             ? `WHERE ${conditions.join(' AND ')}`
             : ''
 
-        // Step 1 — find best representative album_id per title/performer
-        // Best = has cover art, then lowest album_id
+        // Step 1 — get distinct title/performer groups
+        // sorted correctly and pick best album_id
         const [representativeRows] = await pool.query(
             `SELECT
-                MIN(a.album_id) as album_id,
                 a.title,
                 a.performer_id,
-                MAX(a.album_image_url IS NOT NULL) as has_image
+                MIN(CASE WHEN a.album_image_url IS NOT NULL
+                    THEN a.album_id END) AS best_with_image,
+                MIN(a.album_id) AS best_any
             FROM albums a
             JOIN v_album_details v ON a.album_id = v.album_id
             LEFT JOIN labels l ON a.label_id = l.label_id
             JOIN formats f ON a.format_id = f.format_id
             ${whereClause}
-            GROUP BY a.title, a.performer_id`,
+            GROUP BY a.title, a.performer_id
+            ORDER BY ${orderBy}`,
             params
         )
 
-        // If no results return early
         if (representativeRows.length === 0) {
             return res.status(200).json({
                 count: 0, total: 0, page, totalPages: 0, albums: []
@@ -172,27 +173,12 @@ exports.getAllAlbums = async (req, res, next) => {
         const total = representativeRows.length
         const totalPages = Math.ceil(total / limit)
 
-        // Step 2 — get the best album_id for each title/performer
-        // Prefer albums with cover art
-        const bestAlbumIds = []
-        for (const row of representativeRows) {
-            if (row.has_image) {
-                // Get the lowest album_id that has an image
-                const [imageRow] = await pool.query(
-                    `SELECT MIN(album_id) as album_id
-                    FROM albums
-                    WHERE title = ? AND performer_id = ?
-                    AND album_image_url IS NOT NULL`,
-                    [row.title, row.performer_id]
-                )
-                bestAlbumIds.push(imageRow[0].album_id)
-            } else {
-                bestAlbumIds.push(row.album_id)
-            }
-        }
-
-        // Step 3 — fetch full details for best albums with pagination
-        const paginatedIds = bestAlbumIds.slice(offset, offset + limit)
+        // Step 2 — pick best album_id (with image preferred)
+        // and paginate the sorted list
+        const allBestIds = representativeRows.map(row =>
+            row.best_with_image || row.best_any
+        )
+        const paginatedIds = allBestIds.slice(offset, offset + limit)
 
         if (paginatedIds.length === 0) {
             return res.status(200).json({
@@ -200,6 +186,7 @@ exports.getAllAlbums = async (req, res, next) => {
             })
         }
 
+        // Step 3 — fetch full details for paginated albums
         const placeholders = paginatedIds.map(() => '?').join(',')
 
         const [rows] = await pool.query(
@@ -219,7 +206,8 @@ exports.getAllAlbums = async (req, res, next) => {
                     WHERE a2.title = a.title
                     AND a2.performer_id = a.performer_id
                 ) AS version_count,
-                GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
+                GROUP_CONCAT(DISTINCT g.genre_name
+                    ORDER BY g.genre_name SEPARATOR ', ') AS genres
             FROM albums a
             JOIN v_album_details v ON a.album_id = v.album_id
             LEFT JOIN labels l ON a.label_id = l.label_id
@@ -231,17 +219,24 @@ exports.getAllAlbums = async (req, res, next) => {
                 a.album_id, a.performer_id, a.title,
                 a.release_year, a.album_image_url,
                 v.performer_type, v.performer_name,
-                v.label_name, f.format_name
-            ORDER BY ${orderBy}`,
+                v.label_name, f.format_name`,
             paginatedIds
         )
 
+        // Step 4 — re-sort rows to match original sort order
+        // since IN clause doesn't preserve order
+        const albumMap = {}
+        rows.forEach(row => { albumMap[row.album_id] = row })
+        const sortedAlbums = paginatedIds
+            .map(id => albumMap[id])
+            .filter(Boolean)
+
         res.status(200).json({
-            count: rows.length,
+            count: sortedAlbums.length,
             total,
             page,
             totalPages,
-            albums: rows
+            albums: sortedAlbums
         })
 
     } catch (err) {
