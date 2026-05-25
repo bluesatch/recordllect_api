@@ -3,6 +3,8 @@ const logger = require('../config/logger')
 
 const { createNotification } = require('./notificationController')
 
+const { logActivity } = require('./activityController')
+
 // Helper - fetch tags for a post 
 const getPostTags = async (postId)=> {
     const [ tags ] = await pool.execute(
@@ -365,6 +367,7 @@ exports.createPost = async (req, res, next)=> {
 
         const post_id = result.insertId 
 
+
         // Insert tags if provided 
         if (tag_ids && tag_ids.length > 0) {
             const tagValues = tag_ids.map(tag_id => [post_id, tag_id])
@@ -402,6 +405,8 @@ exports.createPost = async (req, res, next)=> {
         }
 
         await con.commit()
+
+        await logActivity(req.user.users_id, 'created_post', post_Id)
 
         res.status(201).json({
             message: 'Post created successfully',

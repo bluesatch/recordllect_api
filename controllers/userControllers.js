@@ -6,6 +6,7 @@ const crypto = require('crypto')
 const { createNotification } = require('./notificationController')
 const logger = require('../config/logger')
 const { sendVerificationEmail, sendResendVerificationEmail, sendPasswordResetEmail } = require('../config/mailer')
+const { logActivity } = require('./activityController')
 
 // Validate password
 const validatePassword = (password)=> {
@@ -545,6 +546,7 @@ exports.getUserAlbums = async (req, res, next)=> {
 exports.addUserAlbum = async (req, res, next)=> {
     const { id } = req.params
     const { album_id } = req.body 
+    const userId = req.user.users_id 
 
     if (!album_id) {
         return res.status(400).json({ message: 'album_id is required'})
@@ -555,6 +557,8 @@ exports.addUserAlbum = async (req, res, next)=> {
             `INSERT INTO user_albums (users_id, album_id) VALUES (?, ?)`,
             [id, album_id]
         )
+
+        await logActivity(userId, 'added_album', parseInt(album_id))
 
         res.status(201).json({
             message: 'Album added to collection',
@@ -883,6 +887,8 @@ exports.followUser = async (req, res, next)=> {
             referenceId: follower_id,
             message: `@${follower[0].username} started following you`
         })
+
+        await logActivity(follower_id, 'followed_user', parseInt(id))
 
         res.status(201).json({ message: 'User followed successfully'})
     } catch (err) {

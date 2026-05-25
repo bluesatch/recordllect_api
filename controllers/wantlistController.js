@@ -1,5 +1,6 @@
 const pool = require('../config/dbconfig')
 const logger = require('../config/logger')
+const { logActivity } = require('./activityController')
 
 // Helper - check if requesting user is a follower 
 const isFollower = async (requesterId, profileId)=> {
@@ -68,6 +69,7 @@ exports.getWantlist = async (req, res, next)=> {
 exports.addToWantlist = async (req, res, next)=> {
     const { id } = req.params 
     const { album_id, notes, priority } = req.body 
+    const userId = req.user.users_id
 
     if (!album_id) {
         return res.status(400).json({ message: 'album_id is required'})
@@ -83,6 +85,8 @@ exports.addToWantlist = async (req, res, next)=> {
             VALUES (?, ?, ?, ?)`,
             [id, album_id, notes || null, priority || 'medium']
         )
+
+        await logActivity(userId, 'added_wantlist', album_id)
 
         res.status(201).json({
             message: 'Album added to wantlist',

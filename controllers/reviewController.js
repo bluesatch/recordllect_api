@@ -1,5 +1,6 @@
 const pool = require('../config/dbconfig')
 const logger = require('../config/logger')
+const { logActivity } = require('./activityController')
 
 // GET reviews for an album 
 exports.getAlbumReviews = async (req, res, next)=> {
@@ -67,6 +68,8 @@ exports.createReview = async (req, res, next)=> {
             VALUES (?, ?, ?)`,
             [userId, id, body]
         )
+
+        await logActivity(userId, 'reviewed_album', parseInt(id))
 
         res.status(201).json({
             message: 'Review created successfully',
