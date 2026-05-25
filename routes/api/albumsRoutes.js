@@ -6,6 +6,7 @@ const auth = require('../../middleware/auth')
 router.get('/', albumController.getAllAlbums)
 router.get('/featured', albumController.getFeaturedAlbums)
 router.get('/:id', auth, albumController.getAlbumById)
+router.get('/:id/versions', albumController.getAlbumVersions)
 
 // POST
 router.post('/', albumController.createAlbum)

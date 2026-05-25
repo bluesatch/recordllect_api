@@ -101,7 +101,7 @@ exports.getAllAlbums = async (req, res, next) => {
 
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 20
-    const offset = (page - 1) * limit 
+    const offset = (page - 1) * limit
     const search = req.query.search || ''
     const format = req.query.format || ''
     const genre = req.query.genre || ''
@@ -110,17 +110,15 @@ exports.getAllAlbums = async (req, res, next) => {
     const sortMap = {
         'title_asc': 'a.title ASC',
         'title_desc': 'a.title DESC',
-        'year_asc': 'a.release_year ASC',
-        'year_desc': 'a.release_year DESC',
+        'year_asc': 'MIN(a.release_year) ASC',
+        'year_desc': 'MIN(a.release_year) DESC',
         'performer_desc': 'v.performer_name DESC',
         'performer_asc': 'v.performer_name ASC'
     }
 
-    const orderBy = sortMap[sort] || 'a.title ASC'
-
+    const orderBy = sortMap[sort] || 'v.performer_name ASC'
 
     try {
-        // Updating to allow filtering...creating dynamic WHERE clause
         const conditions = []
         const params = []
 
@@ -140,56 +138,87 @@ exports.getAllAlbums = async (req, res, next) => {
                 JOIN genres g ON ag.genre_id = g.genre_id
                 WHERE ag.album_id = a.album_id AND g.genre_name = ?
             )`)
-            params.push(genre) 
+            params.push(genre)
         }
 
-        const whereClause = conditions.length > 0 
+        const whereClause = conditions.length > 0
             ? `WHERE ${conditions.join(' AND ')}`
             : ''
 
-        // Count total matching records
-        const [ countResult ] = await pool.query(
-            `SELECT COUNT(*) AS total
-            FROM albums a
-            JOIN v_album_details v ON a.album_id = v.album_id
-            LEFT JOIN labels l ON a.label_id = l.label_id
-            JOIN formats f ON a.format_id = f.format_id
-            ${whereClause}`,
+        // Count distinct title + performer combinations
+        const [countResult] = await pool.query(
+            `SELECT COUNT(*) AS total FROM (
+                SELECT a.title, a.performer_id
+                FROM albums a
+                JOIN v_album_details v ON a.album_id = v.album_id
+                LEFT JOIN labels l ON a.label_id = l.label_id
+                JOIN formats f ON a.format_id = f.format_id
+                ${whereClause}
+                GROUP BY a.title, a.performer_id
+            ) AS distinct_albums`,
             params
         )
 
         const total = countResult[0].total
         const totalPages = Math.ceil(total / limit)
 
-        // Fetch paginated results
-        const [ rows ] = await pool.query(
-            `SELECT 
+        // Fetch one representative album per title + performer
+        // Priority: most owned > has cover art > lowest album_id
+        const [rows] = await pool.query(
+            `SELECT
                 a.album_id,
                 a.performer_id,
                 a.title,
-                a.serial_no,
                 a.release_year,
-                a.duration_seconds,
                 a.album_image_url,
                 v.performer_type,
                 v.performer_name,
                 v.label_name,
                 f.format_name,
-                GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
+                COUNT(DISTINCT a2.album_id) AS version_count,
+                SUM(DISTINCT_OWNED.owned_count) AS total_owners,
+                GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
             FROM albums a
             JOIN v_album_details v ON a.album_id = v.album_id
             LEFT JOIN labels l ON a.label_id = l.label_id
             JOIN formats f ON a.format_id = f.format_id
             LEFT JOIN album_genres ag ON a.album_id = ag.album_id
             LEFT JOIN genres g ON ag.genre_id = g.genre_id
+            -- Join all versions of this title/performer
+            JOIN albums a2 ON a2.title = a.title
+                AND a2.performer_id = a.performer_id
+            -- Get owned count per version
+            LEFT JOIN (
+                SELECT album_id, COUNT(*) as owned_count
+                FROM user_albums
+                GROUP BY album_id
+            ) AS DISTINCT_OWNED ON DISTINCT_OWNED.album_id = a2.album_id
             ${whereClause}
-            GROUP BY 
+            -- Pick best representative:
+            -- 1. Has cover art
+            -- 2. Most owned
+            -- 3. Lowest album_id (oldest entry)
+            AND a.album_id = (
+                SELECT a3.album_id
+                FROM albums a3
+                LEFT JOIN (
+                    SELECT album_id, COUNT(*) as owned_count
+                    FROM user_albums
+                    GROUP BY album_id
+                ) ua3 ON ua3.album_id = a3.album_id
+                WHERE a3.title = a.title
+                AND a3.performer_id = a.performer_id
+                ORDER BY
+                    (a3.album_image_url IS NOT NULL) DESC,
+                    COALESCE(ua3.owned_count, 0) DESC,
+                    a3.album_id ASC
+                LIMIT 1
+            )
+            GROUP BY
                 a.album_id,
                 a.performer_id,
                 a.title,
-                a.serial_no,
                 a.release_year,
-                a.duration_seconds,
                 a.album_image_url,
                 v.performer_type,
                 v.performer_name,
@@ -671,5 +700,54 @@ exports.reorderFeatured = async (req, res, next) => {
         next(err)
     } finally {
         con.release()
+    }
+}
+
+exports.getAlbumVersions = async (req, res, next)=> {
+    const { id } = req.params 
+
+    try {
+        // Get the title and performer of the reqquested album 
+        const [albumRows] = await pool.query(
+            `SELECT title, performer_id FROM albums WHERE album_id = ?`,
+            [id]
+        )
+
+        if (albumRows.length === 0) {
+            return res.status(404).json({ message: 'Album not found' })
+        }
+
+        const { title, performer_id } = albumRows[0]
+
+        // Get all versions of this album 
+        const [versions] = await pool.query(
+            `SELECT 
+                a.album_id,
+                a.title,
+                a.release_year,
+                a.album_image_url,
+                a.discogs_id,
+                a.serial_no,
+                a.source,
+                f.format_name,
+                l.label_name,
+                COUNT(ua.user_album_id) AS owned_by_users
+            FROM albums a
+            LEFT JOIN formats f ON a.format_id = f.format_id
+            LEFT JOIN labels l on a.label_id = l.label_id
+            LEFT JOIN user_albums ua ON a.album_id = ua.album_id
+            WHERE a.title = ?
+            GROUP BY
+                a.album_id, a.title, a.release_year,
+                a.album_image_url, a.discogs_id,
+                a.serial_no, a.source,
+                f.format_name, l.label_name
+            ORDER BY a.release_year ASC, a.album_id ASC`,
+            [title, performer_id]
+        )
+
+        res.status(200).json({ versions })
+    } catch (err) {
+        next(err)
     }
 }
