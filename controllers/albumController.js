@@ -110,13 +110,13 @@ exports.getAllAlbums = async (req, res, next) => {
     const sortMap = {
         'title_asc': 'a.title ASC',
         'title_desc': 'a.title DESC',
-        'year_asc': 'MIN(a.release_year) ASC',
-        'year_desc': 'MIN(a.release_year) DESC',
+        'year_asc': 'a.release_year ASC',
+        'year_desc': 'a.release_year DESC',
         'performer_desc': 'v.performer_name DESC',
         'performer_asc': 'v.performer_name ASC'
     }
 
-    const orderBy = sortMap[sort] || 'v.performer_name ASC'
+    const orderBy = sortMap[sort] || 'a.title ASC'
 
     try {
         const conditions = []
@@ -145,25 +145,63 @@ exports.getAllAlbums = async (req, res, next) => {
             ? `WHERE ${conditions.join(' AND ')}`
             : ''
 
-        // Count distinct title + performer combinations
-        const [countResult] = await pool.query(
-            `SELECT COUNT(*) AS total FROM (
-                SELECT a.title, a.performer_id
-                FROM albums a
-                JOIN v_album_details v ON a.album_id = v.album_id
-                LEFT JOIN labels l ON a.label_id = l.label_id
-                JOIN formats f ON a.format_id = f.format_id
-                ${whereClause}
-                GROUP BY a.title, a.performer_id
-            ) AS distinct_albums`,
+        // Step 1 — find best representative album_id per title/performer
+        // Best = has cover art, then lowest album_id
+        const [representativeRows] = await pool.query(
+            `SELECT
+                MIN(a.album_id) as album_id,
+                a.title,
+                a.performer_id,
+                MAX(a.album_image_url IS NOT NULL) as has_image
+            FROM albums a
+            JOIN v_album_details v ON a.album_id = v.album_id
+            LEFT JOIN labels l ON a.label_id = l.label_id
+            JOIN formats f ON a.format_id = f.format_id
+            ${whereClause}
+            GROUP BY a.title, a.performer_id`,
             params
         )
 
-        const total = countResult[0].total
+        // If no results return early
+        if (representativeRows.length === 0) {
+            return res.status(200).json({
+                count: 0, total: 0, page, totalPages: 0, albums: []
+            })
+        }
+
+        const total = representativeRows.length
         const totalPages = Math.ceil(total / limit)
 
-        // Fetch one representative album per title + performer
-        // Priority: most owned > has cover art > lowest album_id
+        // Step 2 — get the best album_id for each title/performer
+        // Prefer albums with cover art
+        const bestAlbumIds = []
+        for (const row of representativeRows) {
+            if (row.has_image) {
+                // Get the lowest album_id that has an image
+                const [imageRow] = await pool.query(
+                    `SELECT MIN(album_id) as album_id
+                    FROM albums
+                    WHERE title = ? AND performer_id = ?
+                    AND album_image_url IS NOT NULL`,
+                    [row.title, row.performer_id]
+                )
+                bestAlbumIds.push(imageRow[0].album_id)
+            } else {
+                bestAlbumIds.push(row.album_id)
+            }
+        }
+
+        // Step 3 — fetch full details for best albums with pagination
+        const paginatedIds = bestAlbumIds.slice(offset, offset + limit)
+
+        if (paginatedIds.length === 0) {
+            return res.status(200).json({
+                count: 0, total, page, totalPages, albums: []
+            })
+        }
+
+        const placeholders = paginatedIds.map(() => '?').join(',')
+
         const [rows] = await pool.query(
             `SELECT
                 a.album_id,
@@ -175,8 +213,12 @@ exports.getAllAlbums = async (req, res, next) => {
                 v.performer_name,
                 v.label_name,
                 f.format_name,
-                COUNT(DISTINCT a2.album_id) AS version_count,
-                SUM(DISTINCT_OWNED.owned_count) AS total_owners,
+                (
+                    SELECT COUNT(*)
+                    FROM albums a2
+                    WHERE a2.title = a.title
+                    AND a2.performer_id = a.performer_id
+                ) AS version_count,
                 GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
             FROM albums a
             JOIN v_album_details v ON a.album_id = v.album_id
@@ -184,49 +226,14 @@ exports.getAllAlbums = async (req, res, next) => {
             JOIN formats f ON a.format_id = f.format_id
             LEFT JOIN album_genres ag ON a.album_id = ag.album_id
             LEFT JOIN genres g ON ag.genre_id = g.genre_id
-            -- Join all versions of this title/performer
-            JOIN albums a2 ON a2.title = a.title
-                AND a2.performer_id = a.performer_id
-            -- Get owned count per version
-            LEFT JOIN (
-                SELECT album_id, COUNT(*) as owned_count
-                FROM user_albums
-                GROUP BY album_id
-            ) AS DISTINCT_OWNED ON DISTINCT_OWNED.album_id = a2.album_id
-            ${whereClause}
-            -- Pick best representative:
-            -- 1. Has cover art
-            -- 2. Most owned
-            -- 3. Lowest album_id (oldest entry)
-            AND a.album_id = (
-                SELECT a3.album_id
-                FROM albums a3
-                LEFT JOIN (
-                    SELECT album_id, COUNT(*) as owned_count
-                    FROM user_albums
-                    GROUP BY album_id
-                ) ua3 ON ua3.album_id = a3.album_id
-                WHERE a3.title = a.title
-                AND a3.performer_id = a.performer_id
-                ORDER BY
-                    (a3.album_image_url IS NOT NULL) DESC,
-                    COALESCE(ua3.owned_count, 0) DESC,
-                    a3.album_id ASC
-                LIMIT 1
-            )
+            WHERE a.album_id IN (${placeholders})
             GROUP BY
-                a.album_id,
-                a.performer_id,
-                a.title,
-                a.release_year,
-                a.album_image_url,
-                v.performer_type,
-                v.performer_name,
-                v.label_name,
-                f.format_name
-            ORDER BY ${orderBy}
-            LIMIT ? OFFSET ?`,
-            [...params, Number(limit), Number(offset)]
+                a.album_id, a.performer_id, a.title,
+                a.release_year, a.album_image_url,
+                v.performer_type, v.performer_name,
+                v.label_name, f.format_name
+            ORDER BY ${orderBy}`,
+            paginatedIds
         )
 
         res.status(200).json({
@@ -236,6 +243,7 @@ exports.getAllAlbums = async (req, res, next) => {
             totalPages,
             albums: rows
         })
+
     } catch (err) {
         next(err)
     }
