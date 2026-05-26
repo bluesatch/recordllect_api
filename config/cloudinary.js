@@ -37,6 +37,19 @@ const videoStorage = new CloudinaryStorage({
     }
 })
 
+// Audio storage - for post audio clips
+const audioStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'groovist/audio',
+        allowed_formats: ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac'],
+        resource_type: 'video',
+        transformation: [
+            { quality: 'auto'}
+        ]
+    }
+})
+
 // Avatar storage - for profile images 
 const avatarStorage = new CloudinaryStorage({
     cloudinary,
@@ -59,7 +72,12 @@ const uploadImage = multer({
 
 const uploadVideo = multer({
     storage: videoStorage, 
-    limit: { fileSize: 100 * 1024 * 1024 }
+    limits: { fileSize: 50 * 1024 * 1024 }
+})
+
+const uploadAudio = multer({
+    storage: audioStorage,
+    limits: { fileSize: 50 * 1024 * 1024 }
 })
 
 const uploadAvatar = multer({
@@ -71,5 +89,6 @@ module.exports = {
     cloudinary,
     uploadImage,
     uploadVideo,
+    uploadAudio,
     uploadAvatar
 }

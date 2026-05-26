@@ -55,6 +55,24 @@ exports.uploadAvatar = async (req, res, next)=> {
     }
 }
 
+// POST /upload/audio - upload an audio clip 
+exports.uploadAudio = async (req, res, next)=> {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No audio file provided'})
+        }
+
+        res.status(200).json({
+            url: req.file.path,
+            public_id: req.file.filename,
+            format: req.file.format,
+            size: req.file.size
+        })
+    } catch (err) {
+        next(err)
+    }
+}
+
 // DELETE /upload - delete a file from Cluudinary 
 exports.deleteFile = async (req, res, next)=> {
     const { public_id, resource_type = 'image' } = req.body 

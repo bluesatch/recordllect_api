@@ -342,7 +342,7 @@ exports.getUserPosts = async (req, res, next)=> {
 // CREATE post 
 exports.createPost = async (req, res, next)=> {
     const userId = req.user.users_id 
-    const { body, image_url, video_url, alt_text, tag_ids } = req.body 
+    const { body, image_url, video_url, audio_url, alt_text, tag_ids } = req.body 
 
     if (!body && !image_url && !video_url) {
         return res.status(400).json({
@@ -360,9 +360,9 @@ exports.createPost = async (req, res, next)=> {
         await con.beginTransaction()
 
         const [ result ] = await con.execute(
-            `INSERT INTO posts (users_id, body, image_url, video_url, alt_text)
-            VALUES (?, ?, ?, ?, ?)`,
-            [userId, body || null, image_url || null, video_url || null, alt_text || null]
+            `INSERT INTO posts (users_id, body, image_url, video_url, audio_url, alt_text)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+            [userId, body || null, image_url || null, video_url || null, audio_url || null, alt_text || null]
         )
 
         const post_id = result.insertId 
