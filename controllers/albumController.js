@@ -110,8 +110,8 @@ exports.getAllAlbums = async (req, res, next) => {
     const sortMap = {
         'title_asc': 'a.title ASC',
         'title_desc': 'a.title DESC',
-        'year_asc': 'a.release_year ASC',
-        'year_desc': 'a.release_year DESC',
+        'year_asc': 'MIN(a.release_year) ASC',
+        'year_desc': 'MIN(a.release_year) DESC',
         'performer_desc': 'v.performer_name DESC',
         'performer_asc': 'v.performer_name ASC'
     }
@@ -151,6 +151,8 @@ exports.getAllAlbums = async (req, res, next) => {
             `SELECT
                 a.title,
                 a.performer_id,
+                v.performer_name,
+                MIN(a.release_year) AS min_year,
                 MIN(CASE WHEN a.album_image_url IS NOT NULL
                     THEN a.album_id END) AS best_with_image,
                 MIN(a.album_id) AS best_any
@@ -159,7 +161,7 @@ exports.getAllAlbums = async (req, res, next) => {
             LEFT JOIN labels l ON a.label_id = l.label_id
             JOIN formats f ON a.format_id = f.format_id
             ${whereClause}
-            GROUP BY a.title, a.performer_id
+            GROUP BY a.title, a.performer_id, v.performer_name
             ORDER BY ${orderBy}`,
             params
         )
