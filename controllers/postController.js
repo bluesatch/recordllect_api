@@ -406,7 +406,7 @@ exports.createPost = async (req, res, next)=> {
 
         await con.commit()
 
-        await logActivity(req.user.users_id, 'created_post', post_Id)
+        await logActivity(req.user.users_id, 'created_post', post_id)
 
         res.status(201).json({
             message: 'Post created successfully',
