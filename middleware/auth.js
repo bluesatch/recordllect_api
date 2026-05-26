@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 
 module.exports = (req, res, next)=> {
 
-    const token = req.cookies?.token
+    let token = req.cookies?.token
 
     // Fall back to Authorization header (mobile)
     if (!token) {
