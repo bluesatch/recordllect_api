@@ -80,6 +80,7 @@ exports.getFeed = async (req, res, next) => {
                     p.body,
                     p.image_url,
                     p.video_url,
+                    p.audio_url,
                     p.alt_text,
                     p.created_at,
                     p.updated_at,
@@ -108,7 +109,7 @@ exports.getFeed = async (req, res, next) => {
                     UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
                 )
                 GROUP BY
-                    p.post_id, p.body, p.image_url, p.video_url,
+                    p.post_id, p.body, p.image_url, p.video_url, p.audio_url,
                     p.alt_text, p.created_at, p.updated_at,
                     u.users_id, u.username, u.profile_image_url
 
@@ -119,6 +120,7 @@ exports.getFeed = async (req, res, next) => {
                     p.body,
                     p.image_url,
                     p.video_url,
+                    p.audio_url,
                     p.alt_text,
                     p.created_at,
                     p.updated_at,
@@ -149,7 +151,7 @@ exports.getFeed = async (req, res, next) => {
                     UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
                 )
                 GROUP BY
-                    p.post_id, p.body, p.image_url, p.video_url,
+                    p.post_id, p.body, p.image_url, p.video_url, p.audio_url,
                     p.alt_text, p.created_at, p.updated_at,
                     u.users_id, u.username, u.profile_image_url,
                     r.repost_id, ru.users_id, ru.username,
@@ -249,6 +251,7 @@ exports.getUserPosts = async (req, res, next)=> {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -268,6 +271,7 @@ exports.getUserPosts = async (req, res, next)=> {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -285,6 +289,7 @@ exports.getUserPosts = async (req, res, next)=> {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -308,7 +313,7 @@ exports.getUserPosts = async (req, res, next)=> {
             LEFT JOIN comments c ON p.post_id = c.post_id
             WHERE r.users_id = ?
             GROUP BY
-                p.post_id, p.body, p.image_url, p.video_url,
+                p.post_id, p.body, p.image_url, p.video_url, p.audio_url,
                 p.alt_text, p.created_at, p.updated_at,
                 u.users_id, u.username, u.profile_image_url,
                 r.repost_id, ru.users_id, ru.username,
@@ -581,6 +586,7 @@ exports.getPostById = async (req, res, next) => {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -600,6 +606,7 @@ exports.getPostById = async (req, res, next) => {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -707,6 +714,7 @@ exports.getRepostById = async (req, res, next) => {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -730,7 +738,7 @@ exports.getRepostById = async (req, res, next) => {
             LEFT JOIN comments c ON p.post_id = c.post_id
             WHERE r.repost_id = ?
             GROUP BY
-                p.post_id, p.body, p.image_url, p.video_url,
+                p.post_id, p.body, p.image_url, p.video_url, p.audio_url,
                 p.alt_text, p.created_at, p.updated_at,
                 u.users_id, u.username, u.profile_image_url,
                 r.repost_id, ru.users_id, ru.username,
@@ -782,6 +790,7 @@ exports.getPostsByTag = async (req, res, next) => {
                 p.body,
                 p.image_url,
                 p.video_url,
+                p.audio_url,
                 p.alt_text,
                 p.created_at,
                 p.updated_at,
@@ -803,7 +812,7 @@ exports.getPostsByTag = async (req, res, next) => {
                 UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
             )
             GROUP BY
-                p.post_id, p.body, p.image_url, p.video_url,
+                p.post_id, p.body, p.image_url, p.video_url, p.audio_url,
                 p.alt_text, p.created_at, p.updated_at,
                 u.users_id, u.username, u.profile_image_url
             ORDER BY p.created_at DESC
