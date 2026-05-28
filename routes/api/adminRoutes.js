@@ -18,7 +18,7 @@ router.put('/reports/:id', auth, admin, reportController.updateReport)
 router.put('/featured/reorder', auth, admin, albumController.reorderFeatured)
 
 router.delete('/albums/:id', auth, admin, albumController.deleteAlbum)
-router.delete('/featured', auth, admin, albumController.removeFeaturedAlbum)
+router.delete('/featured/:id', auth, admin, albumController.removeFeaturedAlbum)
 router.delete('/tracks/:id', auth, admin, trackController.deleteTrack)
 
 module.exports = router
