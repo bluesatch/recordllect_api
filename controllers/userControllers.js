@@ -1495,3 +1495,57 @@ exports.savePushToken = async (req, res, next)=> {
         next(err)
     }
 }
+
+// GET /users/notification-preferences
+exports.getNotificationPreferences = async (req, res, next) => {
+    const userId = req.user.users_id
+
+    try {
+        const [rows] = await pool.execute(
+            `SELECT notif_likes, notif_comments, notif_follows, notif_mentions
+            FROM users WHERE users_id = ?`,
+            [userId]
+        )
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' })
+        }
+
+        res.status(200).json({ preferences: rows[0] })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// PUT /users/notification-preferences
+exports.updateNotificationPreferences = async (req, res, next) => {
+    const userId = req.user.users_id
+    const {
+        notif_likes,
+        notif_comments,
+        notif_follows,
+        notif_mentions
+    } = req.body
+
+    try {
+        await pool.execute(
+            `UPDATE users SET
+                notif_likes = ?,
+                notif_comments = ?,
+                notif_follows = ?,
+                notif_mentions = ?
+            WHERE users_id = ?`,
+            [
+                notif_likes ?? true,
+                notif_comments ?? true,
+                notif_follows ?? true,
+                notif_mentions ?? true,
+                userId
+            ]
+        )
+
+        res.status(200).json({ message: 'Notification preferences updated' })
+    } catch (err) {
+        next(err)
+    }
+}
