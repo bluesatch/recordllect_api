@@ -49,17 +49,49 @@ const createNotification = async (io, {
 
         const pushToken = recipientRows[0]?.push_token
 
+        // Before sending push — check user's preferences
         if (pushToken) {
-            await sendPushNotification(
-                pushToken,
-                'Groovist',
-                message,
-                {
-                    type,
-                    reference_id: referenceId,
-                    notification_id: notificationId
-                }
+            // Check if user has this notification type enabled
+            const [prefRows] = await pool.execute(
+                `SELECT notif_likes, notif_comments, notif_follows, notif_mentions
+                FROM users WHERE users_id = ?`,
+                [recipientId]
             )
+
+            const prefs = prefRows[0]
+            let shouldSend = true
+
+            switch (type) {
+                case 'like_post':
+                case 'like_comment':
+                    shouldSend = !!prefs?.notif_likes
+                    break
+                case 'comment':
+                case 'reply':
+                    shouldSend = !!prefs?.notif_comments
+                    break
+                case 'follow':
+                    shouldSend = !!prefs?.notif_follows
+                    break
+                case 'mention':
+                    shouldSend = !!prefs?.notif_mentions
+                    break
+                default:
+                    shouldSend = true
+            }
+
+            if (shouldSend) {
+                await sendPushNotification(
+                    pushToken,
+                    'Groovist',
+                    message,
+                    {
+                        type,
+                        reference_id: referenceId,
+                        notification_id: notificationId
+                    }
+                )
+            }
         }
 
         return notification
