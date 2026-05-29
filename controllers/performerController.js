@@ -1,3 +1,4 @@
+const { Profiler } = require('winston')
 const pool = require('../config/dbconfig')
 const logger = require('../config/logger')
 
@@ -145,7 +146,7 @@ exports.getAllPerformers = async (req, res, next)=> {
                 p.performer_id,
                 p.performer_type,
                 COALESCE(ar.alias, CONCAT(ar.first_name, ' ', ar.last_name), b.band_name) AS performer_name,
-                COALESCE(ar.profile_image_url, b.profile_image_url) AS profile_image_url,
+                p.profile_image_url,
                 ar.date_of_birth,
                 ar.date_of_death,
                 b.formed_year,
@@ -181,13 +182,13 @@ exports.getPerformerById = async (req, res, next) => {
             `SELECT
                 p.performer_id,
                 p.performer_type,
+                p.profile_image_url,
                 ar.first_name,
                 ar.last_name,
                 ar.alias,
                 ar.date_of_birth,
                 ar.date_of_death,
                 ar.bio AS artist_bio,
-                ar.profile_image_url AS artist_image,
                 b.band_name,
                 b.formed_year,
                 b.disbanded_year,
@@ -213,15 +214,15 @@ exports.getPerformerById = async (req, res, next) => {
             ? performer.artist_bio
             : performer.band_bio
 
-        performer.profile_image_url = performer.performer_type === 'artist'
-            ? performer.artist_image
-            : performer.band_image
+        // performer.profile_image_url = performer.performer_type === 'artist'
+        //     ? performer.artist_image
+        //     : performer.band_image
 
         // Clean up aliases
         delete performer.artist_bio 
         delete performer.band_bio 
-        delete performer.artist_image 
-        delete performer.band_image 
+        // delete performer.artist_image 
+        // delete performer.band_image 
 
         // If artist, also fetch their instruments
         if (performer.performer_type === 'artist') {
@@ -308,18 +309,19 @@ exports.updatePerformer = async (req, res, next)=> {
                 // MOVING FROM artist to band 
                 // GET THE alias TO USE AS A band name 
                 const [artistRows] = await con.execute(
-                    `SELECT alias, first_name, last_name FROM artists WHERE performer_id = ?`,
+                    `SELECT alias, first_name, last_name, profile_image_url FROM artists WHERE performer_id = ?`,
                 [id]
                 )
 
                 const artist = artistRows[0]
                 const derivedBandName = band_name || `${artist?.first_name || ''} ${artist?.last_name || ''}`.trim() || 'Unknown'
+                const existingImage = artist?.profile_image_url || null
 
                 // Insert into bands
                 await con.execute(
-                    `INSERT IGNORE INTO bands (performer_id, band_name, formed_year, disbanded_year, country)
-                    VALUES (?, ?, ?, ?, ?)`,
-                    [id, derivedBandName, formed_year || null, disbanded_year || null, country || null]
+                    `INSERT IGNORE INTO bands (performer_id, band_name, formed_year, disbanded_year, country, bio, profile_image_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [id, derivedBandName, formed_year || null, disbanded_year || null, country || null, bio || null, profile_image_url || existingImage]
                 )
 
                 // Remove from artists 
@@ -331,22 +333,29 @@ exports.updatePerformer = async (req, res, next)=> {
                 // Moving from band to artist 
                 // Get the band name to use as alias 
                 const [bandRows] = await con.execute(
-                    `SELECT band_name FROM bands WHERE performer_id = ?`,
+                    `SELECT band_name, profile_image_url, bio FROM bands WHERE performer_id = ?`,
                     [id]
                 )
-
+                const band = bandRows[0]
                 const derivedAlias = alias || bandRows[0]?.band_name || null 
+                const existingImage = band?.profile_image_url || null
 
                 // Insert into artists 
                 await con.execute(
-                    `INSERT IGNORE INTO artists (performer_id, alias, first_name, last_name) VALUES (?, ?, ?, ?)`,
-                    [id, derivedAlias, first_name || null, last_name || null]
+                    `INSERT IGNORE INTO artists (performer_id, alias, first_name, last_name, bio, profile_image_url) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [id, derivedAlias, first_name || null, last_name || null, bio || null, profile_image_url || existingImage]
                 )
 
                 // Remove from bands 
                 await con.execute(
                     `DELETE FROM bands WHERE performer_id = ?`,
                     [id]
+                )
+
+                 await con.execute(
+                    `UPDATE performers SET profile_image_url = COALESCE(?, profile_image_url)
+                    WHERE performer_id = ?`,
+                    [profile_image_url || existingImage, id]
                 )
             }
         } else {
@@ -357,6 +366,13 @@ exports.updatePerformer = async (req, res, next)=> {
          */
 
         if (currType === 'artist') {
+
+            await con.execute(
+                `UPDATE performers SET
+                    profile_image_url = COALESCE(?, profile_image_url)
+                WHERE performer_id = ?`,
+                [profile_image_url || existingImage, id]
+            )
             await con.execute(
                 `UPDATE artists SET
                     first_name = COALESCE(?, first_name),
@@ -370,6 +386,12 @@ exports.updatePerformer = async (req, res, next)=> {
                 [first_name || null, last_name || null, alias || null, date_of_birth || null, date_of_death || null, bio || null, profile_image_url || null, id]
             )
         } else {
+            await con.execute(
+                `UPDATE performers SET 
+                    profile_image_url = COALESCE(?, profile_image_url)
+                WHERE performer_id = ?`,
+                [profile_image_url || null, id]
+            )
             await con.execute(
                 `UPDATE bands SET
                     band_name = COALESCE(?, band_name),
