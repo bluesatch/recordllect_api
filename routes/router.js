@@ -69,6 +69,9 @@ router.use('/upload', uploadRoutes)
 const activityRoutes = require('./api/activityRoutes')
 router.use('/activity', activityRoutes)
 
+const csvImportRoutes = require('./api/csvImportRoutes')
+router.use('/csv', csvImportRoutes)
+
 /** ERROR HANDLING **/
 router.use((req, res)=> {
     res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found` })
