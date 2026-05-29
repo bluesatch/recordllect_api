@@ -24,8 +24,7 @@ const validatePassword = (password)=> {
 exports.register = async (req, res, next)=> {
     const { 
         first_name, last_name, email, username, password,
-        address_line_1, address_line_2, city, state,
-        postal_code, country, profile_image_url
+        city, state, country, profile_image_url
     } = req.body
 
     // input validation
@@ -79,16 +78,13 @@ exports.register = async (req, res, next)=> {
         const [result] = await pool.execute(
             `INSERT INTO users (
                 first_name, last_name, email, username, password_hash,
-                address_line_1, address_line_2, city, state,
-                postal_code, country, profile_image_url,
+                city, state, country, profile_image_url,
                 verification_token, verification_token_expires,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 first_name, last_name, email, username, hashedPassword,
-                address_line_1 || null, address_line_2 || null,
-                city || null, state || null, postal_code || null,
-                country || null, profile_image_url || null,
+                city || null, state || null, country || null, profile_image_url || null,
                 verificationToken, tokenExpires, 'pending_verification'
             ]
         )
@@ -212,11 +208,8 @@ exports.getUserById = async (req, res, next) => {
                 email,
                 bio,
                 username,
-                address_line_1,
-                address_line_2,
                 city,
                 state,
-                postal_code,
                 country,
                 status,
                 is_verified,
@@ -299,11 +292,8 @@ exports.updateUser = async (req, res, next) => {
         username,
         first_name,
         last_name,
-        address_line_1,
-        address_line_2,
         city,
         state,
-        postal_code,
         country,
         profile_image_url,
         bio,
@@ -322,11 +312,8 @@ exports.updateUser = async (req, res, next) => {
                 first_name = COALESCE(?, first_name),
                 last_name = COALESCE(?, last_name),
                 bio = COALESCE(?, bio),
-                address_line_1 = COALESCE(?, address_line_1),
-                address_line_2 = COALESCE(?, address_line_2),
                 city = COALESCE(?, city),
                 state = COALESCE(?, state),
-                postal_code = COALESCE(?, postal_code),
                 country = COALESCE(?, country),
                 profile_image_url = COALESCE(?, profile_image_url)
             WHERE users_id = ?`,
@@ -335,11 +322,8 @@ exports.updateUser = async (req, res, next) => {
                 first_name || null,
                 last_name || null,
                 bio || null,
-                address_line_1 || null,
-                address_line_2 || null,
                 city || null,
                 state || null,
-                postal_code || null,
                 country || null,
                 profile_image_url || null,
                 id
@@ -397,11 +381,8 @@ exports.getMe = async (req, res, next)=> {
                 email,
                 bio,
                 username,
-                address_line_1,
-                address_line_2,
                 city,
                 state,
-                postal_code,
                 country,
                 status,
                 email_verified_at,
