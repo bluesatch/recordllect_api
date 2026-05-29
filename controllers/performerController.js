@@ -352,7 +352,7 @@ exports.updatePerformer = async (req, res, next)=> {
                     [id]
                 )
 
-                 await con.execute(
+                await con.execute(
                     `UPDATE performers SET profile_image_url = COALESCE(?, profile_image_url)
                     WHERE performer_id = ?`,
                     [profile_image_url || existingImage, id]
