@@ -138,6 +138,10 @@ const importPerformerProfiles = async () => {
                     WHERE artist_id = ?`,
                     [imageUrl, artist.artist_id]
                 )
+                await pool.query(
+                    `UPDATE performers SET profile_image_url = ? WHERE performer_id = ?`,
+                    [imageUrl, artist.performer_id]
+                )
                 changes.push('image')
             }
 
@@ -191,6 +195,10 @@ const importPerformerProfiles = async () => {
                     `UPDATE bands SET profile_image_url = ?
                     WHERE band_id = ?`,
                     [imageUrl, band.band_id]
+                )
+                await pool.query(
+                    `UPDATE performers SET profile_image_url = ? WHERE performer_id = ?`,
+                    [imageUrl, band.performer_id]
                 )
                 changes.push('image')
             }
