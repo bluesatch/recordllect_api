@@ -72,7 +72,6 @@ const globalLimiter = rateLimit({
     max: 500,
     message: { message: 'Too many requests, please try again later.' },
     standardHeaders: true,
-    legacyHeaders: false
 })
 
 const authLimiter = rateLimit({
@@ -80,7 +79,6 @@ const authLimiter = rateLimit({
     max: 10,
     message: { message: 'Too many login attempts, please try again later.' },
     standardHeaders: true,
-    legacyHeaders: false
 })
 
 const discogsLimiter = rateLimit({
@@ -88,7 +86,6 @@ const discogsLimiter = rateLimit({
     max: 20,
     message: { message: 'Too many Discogs requests, please slow down.' },
     standardHeaders: true,
-    legacyHeaders: false
 })
 
 const collectionImportLimiter = rateLimit({
@@ -96,7 +93,6 @@ const collectionImportLimiter = rateLimit({
     max: 10,
     message: { message: 'Too many collection imports. Please wait an hour before trying again.' },
     standardHeaders: true,
-    legacyHeader: false
 })
 
 app.use('/api', globalLimiter)
