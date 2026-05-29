@@ -59,7 +59,7 @@ exports.searchDiscogs = async (req, res, next) => {
     }
 
     try {
-        const url = `${DISCOGS_BASE}/database/search?q=${encodeURIComponent(q)}&type=${type}&per_page=10&token=${DISCOGS_TOKEN}`
+        const url = `${DISCOGS_BASE}/database/search?q=${encodeURIComponent(q)}&type=${type}&per_page=100&token=${DISCOGS_TOKEN}`
 
         const response = await fetch(url, { headers: DISCOGS_HEADERS })
 
