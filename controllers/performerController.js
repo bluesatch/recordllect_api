@@ -443,3 +443,49 @@ exports.deletePerformer = async (req, res, next)=> {
         next(err)
     }
 }
+
+// POST /performers/:id/members
+exports.addBandMember = async (req, res, next) => {
+    const { id } = req.params
+    const { artist_id } = req.body
+
+    if (!artist_id) {
+        return res.status(400).json({ message: 'artist_id is required' })
+    }
+
+    try {
+        const [bandRows] = await pool.execute(
+            `SELECT band_id FROM bands WHERE performer_id = ?`, [id]
+        )
+        if (bandRows.length === 0) {
+            return res.status(404).json({ message: 'Band not found' })
+        }
+        await pool.execute(
+            `INSERT IGNORE INTO band_members (band_id, artist_id) VALUES (?, ?)`,
+            [bandRows[0].band_id, artist_id]
+        )
+        res.status(201).json({ message: 'Member added successfully' })
+    } catch (err) {
+        next(err)
+    }
+}
+
+// DELETE /performers/:id/members/:artistId
+exports.removeBandMember = async (req, res, next) => {
+    const { id, artistId } = req.params
+    try {
+        const [bandRows] = await pool.execute(
+            `SELECT band_id FROM bands WHERE performer_id = ?`, [id]
+        )
+        if (bandRows.length === 0) {
+            return res.status(404).json({ message: 'Band not found' })
+        }
+        await pool.execute(
+            `DELETE FROM band_members WHERE band_id = ? AND artist_id = ?`,
+            [bandRows[0].band_id, artistId]
+        )
+        res.status(200).json({ message: 'Member removed successfully' })
+    } catch (err) {
+        next(err)
+    }
+}

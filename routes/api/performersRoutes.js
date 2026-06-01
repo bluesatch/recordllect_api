@@ -12,6 +12,7 @@ router.get('/:id/albums', albumController.getAlbumsByPerformer)
 
 // POST
 router.post('/', performerController.createPerformer)
+router.post('/:id/members', auth, admin, performerController.addBandMember)
 
 // PUT
 router.put('/:id', auth, admin, performerController.updatePerformer)
@@ -20,5 +21,6 @@ router.put('/:id', auth, admin, performerController.updatePerformer)
 ! DELETE
 */
 router.delete('/:id', auth, admin, performerController.deletePerformer)
+router.delete('/:id/members/:artistId', auth, admin, performerController.removeBandMember)
 
 module.exports = router
