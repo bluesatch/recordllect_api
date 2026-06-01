@@ -11,7 +11,7 @@ router.get('/:id/albums', albumController.getAlbumsByPerformer)
 
 
 // POST
-router.post('/', performerController.createPerformer)
+router.post('/', auth, admin, performerController.createPerformer)
 router.post('/:id/members', auth, admin, performerController.addBandMember)
 
 // PUT
