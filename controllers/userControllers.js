@@ -1530,3 +1530,31 @@ exports.updateNotificationPreferences = async (req, res, next) => {
         next(err)
     }
 }
+// GET USER STATS (admin)
+exports.getUserStats = async (req, res, next) => {
+    try {
+        const [[totals]] = await pool.query(
+            `SELECT
+                COUNT(*) AS total_users,
+                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_users,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS new_this_week,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS new_this_month,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH) THEN 1 ELSE 0 END) AS new_this_6months
+            FROM users`
+        )
+
+        const [weekly] = await pool.query(
+            `SELECT
+                DATE(created_at) AS date,
+                COUNT(*) AS count
+            FROM users
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC`
+        )
+
+        res.status(200).json({ stats: totals, growth: weekly })
+    } catch (err) {
+        next(err)
+    }
+}

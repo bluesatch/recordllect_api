@@ -11,6 +11,7 @@ router.get('/featured', auth, admin, albumController.getAdminFeatured)
 router.get('/reports', auth, admin, reportController.getAllReports)
 router.get('/reports/stats', auth, admin, reportController.getReportStats)
 router.get('/inactive-users', auth, admin, userController.getInactiveUsers)
+router.get('/user-stats', auth, admin, userController.getUserStats)
 
 router.post('/featured', auth, admin, albumController.setFeaturedAlbum)
 
