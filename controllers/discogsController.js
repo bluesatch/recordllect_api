@@ -628,9 +628,9 @@ exports.importCollection = async (req, res, next) => {
                     imported++
                 }
                 } catch (itemErr) {
-                console.error('Failed to import release:', itemErr.message)
-                failed++
-            }
+                    logger.error('Failed to import release', { message: itemErr.message, discogsId })
+                    failed++
+                }
         }
 
         // Calculate next page 

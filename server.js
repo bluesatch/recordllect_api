@@ -181,18 +181,24 @@ app.get('/health', (req, res) => {
 // 9. GLOBAL ERROR HANDLER
 // ============================================
 app.use((err, req, res, next) => {
-    logger.error('Unhandled error', {
-        message: err.message,
-        stack: err.stack,
-        method: req.method,
-        url: req.originalUrl,
-        userId: req.user?.users_id
-    })
+    try {
+        logger.error('Unhandled error', {
+            message: err.message,
+            stack: err.stack,
+            method: req.method,
+            url: req.originalUrl,
+            userId: req.user?.users_id
+        })
+    } catch (_) {
+        // Logger itself failed — don't let it prevent the response
+        console.error('Logger failed:', err.message)
+    }
 
-    res.status(err.status || 500).json({
-        message: process.env.NODE_ENV === 'production'
-            ? 'Internal server error'
-            : err.message
+    // Never expose internal error messages to clients
+    const status = err.status || err.statusCode || 500
+    const isClientError = status >= 400 && status < 500
+    res.status(status).json({
+        message: isClientError ? err.message : 'Something went wrong. Please try again.'
     })
 })
 
