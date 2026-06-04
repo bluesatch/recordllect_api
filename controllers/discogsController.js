@@ -439,7 +439,7 @@ exports.importCollection = async (req, res, next) => {
         })
     }
 
-    const MAX_PAGES = 5
+    const MAX_PAGES = 1
 
     try {
         // First fetch page 1 to get total count
@@ -493,7 +493,7 @@ exports.importCollection = async (req, res, next) => {
                     albumId = existingAlbum[0].album_id
                 } else {
                     // Album doesn't exist — import it
-                    await sleep(500) // rate limit
+                    await sleep(200) // rate limit
                     const release = await fetchRelease(discogsId)
 
                     if (!release) {
