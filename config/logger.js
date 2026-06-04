@@ -18,9 +18,18 @@ const logger = winston.createLogger({
                     format: 'YYYY-MM-DD HH:mm:ss'
                 }),
                 winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    const metaStr = Object.keys(meta).length 
-                        ? `\n${JSON.stringify(meta, null, 2)}`
-                        : ''
+                    let metaStr = ''
+                    if (Object.keys(meta).length) {
+                        const seen = new WeakSet()
+                        const safeJson = JSON.stringify(meta, (key, value) => {
+                            if (typeof value === 'object' && value !== null) {
+                                if (seen.has(value)) return '[Circular]'
+                                seen.add(value)
+                            }
+                            return value
+                        }, 2)
+                        metaStr = `\n${safeJson}`
+                    }
                     return `[${timestamp}] ${level}: ${message}${metaStr}`
                 })
             )
