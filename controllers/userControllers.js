@@ -591,6 +591,7 @@ exports.getFollowers = async (req, res, next) => {
             FROM follows f
             JOIN users u ON f.follower_id = u.users_id
             WHERE f.following_id = ?
+            AND u.is_test_account = FALSE
             ORDER BY u.first_name ASC`,
             [id]
         )
@@ -619,6 +620,7 @@ exports.getFollowing = async (req, res, next) => {
             FROM follows f
             JOIN users u ON f.following_id = u.users_id
             WHERE f.follower_id = ?
+            AND u.is_test_account = FALSE 
             ORDER BY u.first_name ASC`,
             [id]
         )
@@ -685,8 +687,8 @@ exports.searchUsers = async (req, res, next) => {
             // Build genre match subquery
             const genreSubquery = genreIds.length > 0
                 ? `(SELECT COUNT(*) FROM user_genres ug2
-                   WHERE ug2.users_id = u.users_id
-                   AND ug2.genre_id IN (${genreIds.map(() => '?').join(',')}))`
+                    WHERE ug2.users_id = u.users_id
+                    AND ug2.genre_id IN (${genreIds.map(() => '?').join(',')}))`
                 : `0`
 
             const [suggestions] = await pool.query(
@@ -712,6 +714,7 @@ exports.searchUsers = async (req, res, next) => {
                 LEFT JOIN genres g ON ug.genre_id = g.genre_id
                 WHERE u.users_id != ?
                 AND u.status = 'active'
+                AND u.is_test_account = FALSE
                 AND u.users_id NOT IN (
                     SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
                     UNION
@@ -753,6 +756,9 @@ exports.searchUsers = async (req, res, next) => {
         conditions.push(`u.users_id != ?`)
         params.push(requesterId)
 
+        // Exclude test accounts 
+        conditions.push(`u.is_test_account = FALSE`)
+
         // Exclude blocked users
         conditions.push(`u.users_id NOT IN (
             SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
@@ -771,6 +777,7 @@ exports.searchUsers = async (req, res, next) => {
 
         // Active users only
         conditions.push(`u.status = 'active'`)
+        conditions.push(`u.is_test_account = FALSE`)
 
         // Search by username
         if (search) {

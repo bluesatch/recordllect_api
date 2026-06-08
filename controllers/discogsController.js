@@ -470,7 +470,8 @@ exports.importCollection = async (req, res, next) => {
             const pageData = await fetchCollectionPage(cleanUsername, page)
             allReleases.push(...pageData.releases)
         }
-         // Process each release
+
+        // Process each release
         for (const item of allReleases) {
             try {
                 const discogsId = item.basic_information?.id || item.id
@@ -500,7 +501,8 @@ exports.importCollection = async (req, res, next) => {
                         failed++
                         continue
                     }
-                     // Get or create performer
+
+                    // Get or create performer
                     const performerName = release.artists?.[0]?.name || 'Unknown Artist'
                     const cleanName = performerName.replace(/\s*\(\d+\)\s*$/, '').trim()
 
@@ -555,6 +557,7 @@ exports.importCollection = async (req, res, next) => {
                     let formatId = existingFormat.length > 0
                         ? existingFormat[0].format_id
                         : 1 // Default to Vinyl
+
                     // Create album
                     const releaseYear = release.year || null
                     const coverImage = release.images?.[0]?.uri || null
@@ -633,11 +636,12 @@ exports.importCollection = async (req, res, next) => {
                 }
         }
 
-        // Calculate next page 
-        const nextPage = endPage < totalPages ? endPage + 1 : null 
+        // Calculate next page
+        const nextPage = endPage < totalPages ? endPage + 1 : null
+        console.log(`[importCollection] sending response nextPage=${nextPage}`, `Line 650`)
 
         res.status(200).json({
-            message: nextPage 
+            message: nextPage
                 ? `Batch imported! ${totalPages - endPage} pages remaining.`
                 : 'Collection fully imported!',
             imported,
@@ -650,6 +654,7 @@ exports.importCollection = async (req, res, next) => {
         })
 
     } catch (err) {
+        console.log(`[importCollection] outer catch: ${err.message}`, `Line 665`)
         next(err)
     }
 }
