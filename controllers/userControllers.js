@@ -123,7 +123,7 @@ exports.login = async (req, res, next)=> {
 
     try {
         const [ rows ] = await pool.execute(
-            `SELECT users_id, first_name, last_name, email, status, username, password_hash, is_admin FROM users WHERE email = ? AND status = 'active'`,
+            `SELECT users_id, first_name, last_name, email, status, username, password_hash, is_admin, profile_completed FROM users WHERE email = ? AND status = 'active'`,
             [email]
         )
 
@@ -164,7 +164,11 @@ exports.login = async (req, res, next)=> {
         })
 
         // res.json({ message: 'Login successful' })
-        res.status(200).json({ message: 'Login successful', token})
+        res.status(200).json({ 
+            message: 'Login successful', 
+            token,
+            profile_completed: user.profile_completed
+        })
     } catch (err) {
         next(err)
     }
@@ -315,7 +319,8 @@ exports.updateUser = async (req, res, next) => {
                 city = COALESCE(?, city),
                 state = COALESCE(?, state),
                 country = COALESCE(?, country),
-                profile_image_url = COALESCE(?, profile_image_url)
+                profile_image_url = COALESCE(?, profile_image_url),
+                profile_completed = TRUE
             WHERE users_id = ?`,
             [
                 username || null,
