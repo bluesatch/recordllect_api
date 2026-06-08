@@ -167,7 +167,8 @@ exports.login = async (req, res, next)=> {
         res.status(200).json({ 
             message: 'Login successful', 
             token,
-            profile_completed: user.profile_completed
+            profile_completed: user.profile_completed,
+            users_id: user.users_id
         })
     } catch (err) {
         next(err)
