@@ -122,8 +122,13 @@ exports.login = async (req, res, next)=> {
     }
 
     try {
+        // Determine if input is email or username 
+        const isEmail = email.includes('@')
+
         const [ rows ] = await pool.execute(
-            `SELECT users_id, first_name, last_name, email, status, username, password_hash, is_admin, profile_completed FROM users WHERE email = ? AND status = 'active'`,
+            isEmail
+                ? `SELECT users_id, first_name, last_name, email, status, username, password_hash, is_admin, profile_completed FROM users WHERE email = ? AND status = 'active'`
+                : `SELECT users_id, first_name, last_name, email, status, username, password_hash, is_admin, profile_completed FROM users WHERE username = ? AND status = 'active'`,
             [email]
         )
 
