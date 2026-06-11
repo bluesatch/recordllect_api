@@ -440,10 +440,27 @@ exports.importCollection = async (req, res, next) => {
     }
 
     const MAX_PAGES = 1
+    const PER_PAGE = 100
 
     try {
-        // First fetch page 1 to get total count
-        const firstPage = await fetchCollectionPage(cleanUsername, start_page)
+        // If starting fresh, compute resume page from how many Discogs albums
+        // the user already has so we don't re-scan pages they've already imported
+        let resumePage = Number(start_page)
+        if (resumePage === 1) {
+            const [[{ already_imported }]] = await pool.query(
+                `SELECT COUNT(*) AS already_imported
+                 FROM user_albums ua
+                 JOIN albums a ON ua.album_id = a.album_id
+                 WHERE ua.users_id = ? AND a.source = 'discogs'`,
+                [userId]
+            )
+            if (already_imported > 0) {
+                resumePage = Math.floor(already_imported / PER_PAGE) + 1
+            }
+        }
+
+        // First fetch to get total count and first batch of releases
+        const firstPage = await fetchCollectionPage(cleanUsername, resumePage)
         const total = firstPage.pagination.items
         const totalPages = firstPage.pagination.pages
 
@@ -456,16 +473,31 @@ exports.importCollection = async (req, res, next) => {
                 total: 0
             })
         }
+
+        // If we've already imported everything, let the user know
+        if (resumePage > totalPages) {
+            return res.status(200).json({
+                message: 'Your full Discogs collection has already been imported!',
+                imported: 0,
+                already_owned: total,
+                failed: 0,
+                total,
+                total_pages: totalPages,
+                current_page: totalPages,
+                next_page: null
+            })
+        }
+
         let imported = 0
         let already_owned = 0
         let failed = 0
 
-        const endPage = Math.min(totalPages, start_page + MAX_PAGES - 1)
+        const endPage = Math.min(totalPages, resumePage + MAX_PAGES - 1)
         // Process all releases across all pages
         const allReleases = [...firstPage.releases]
 
         // Fetch remaining pages
-        for (let page = start_page + 1; page <= endPage; page++) {
+        for (let page = resumePage + 1; page <= endPage; page++) {
             await sleep(1000) // 1 second between page requests
             const pageData = await fetchCollectionPage(cleanUsername, page)
             allReleases.push(...pageData.releases)
@@ -638,7 +670,6 @@ exports.importCollection = async (req, res, next) => {
 
         // Calculate next page
         const nextPage = endPage < totalPages ? endPage + 1 : null
-        console.log(`[importCollection] sending response nextPage=${nextPage}`, `Line 650`)
 
         res.status(200).json({
             message: nextPage
@@ -654,7 +685,6 @@ exports.importCollection = async (req, res, next) => {
         })
 
     } catch (err) {
-        console.log(`[importCollection] outer catch: ${err.message}`, `Line 665`)
         next(err)
     }
 }
