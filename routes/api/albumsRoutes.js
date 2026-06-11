@@ -7,6 +7,7 @@ router.get('/', albumController.getAllAlbums)
 router.get('/featured', albumController.getFeaturedAlbums)
 router.get('/:id', auth, albumController.getAlbumById)
 router.get('/:id/versions', albumController.getAlbumVersions)
+router.get('/:id/social-proof', auth, albumController.getAlbumSocialProof)
 
 // POST
 router.post('/', albumController.createAlbum)

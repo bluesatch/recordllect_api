@@ -756,3 +756,98 @@ exports.getAlbumVersions = async (req, res, next)=> {
         next(err)
     }
 }
+
+// GET /albums/:id/social-proof — followers who own or want this album
+exports.getAlbumSocialProof = async (req, res, next) => {
+    const { id } = req.params
+    const userId = req.user.users_id
+
+    try {
+        // Get followers who own this album
+        const [owners] = await pool.execute(
+            `SELECT 
+                u.users_id,
+                u.username,
+                u.profile_image_url
+            FROM follows f
+            JOIN users u ON f.following_id = u.users_id
+            JOIN user_albums ua ON u.users_id = ua.users_id
+            WHERE f.follower_id = ?
+            AND ua.album_id = ?
+            AND u.is_test_account = FALSE
+            LIMIT 3`,
+            [userId, id]
+        )
+
+        // Get total count of followers who own it
+        const [ownerCount] = await pool.execute(
+            `SELECT COUNT(*) AS total
+            FROM follows f
+            JOIN user_albums ua ON f.following_id = ua.users_id
+            WHERE f.follower_id = ?
+            AND ua.album_id = ?`,
+            [userId, id]
+        )
+
+        // Get followers who want this album
+        const [wanters] = await pool.execute(
+            `SELECT 
+                u.users_id,
+                u.username,
+                u.profile_image_url
+            FROM follows f
+            JOIN users u ON f.following_id = u.users_id
+            JOIN wantlists w ON u.users_id = w.users_id
+            WHERE f.follower_id = ?
+            AND w.album_id = ?
+            AND u.is_test_account = FALSE
+            LIMIT 3`,
+            [userId, id]
+        )
+
+        // Get total count of followers who want it
+        const [wantCount] = await pool.execute(
+            `SELECT COUNT(*) AS total
+            FROM follows f
+            JOIN wantlists w ON f.following_id = w.users_id
+            WHERE f.follower_id = ?
+            AND w.album_id = ?`,
+            [userId, id]
+        )
+
+        const ownTotal = ownerCount[0].total
+        const wantTotal = wantCount[0].total
+
+        // Build display text
+        // "Jonuff and 32 others own this"
+        const buildOwnerText = () => {
+            if (ownTotal === 0) return null
+            if (ownTotal === 1) return `${owners[0].username} owns this`
+            if (ownTotal === 2) return `${owners[0].username} and ${owners[1].username} own this`
+            return `${owners[0].username} and ${ownTotal - 1} others own this`
+        }
+
+        const buildWantText = () => {
+            if (wantTotal === 0) return null
+            if (wantTotal === 1) return `${wanters[0].username} wants this`
+            if (wantTotal === 2) return `${wanters[0].username} and ${wanters[1].username} want this`
+            return `${wanters[0].username} and ${wantTotal - 1} others want this`
+        }
+
+        res.status(200).json({
+            owners: {
+                total: ownTotal,
+                sample: owners,
+                text: buildOwnerText()
+            },
+            wanters: {
+                total: wantTotal,
+                sample: wanters,
+                text: buildWantText()
+            }
+        })
+
+    } catch (err) {
+        next(err)
+    }
+}
