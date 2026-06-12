@@ -439,28 +439,17 @@ exports.importCollection = async (req, res, next) => {
         })
     }
 
-    const MAX_PAGES = 1
-    const PER_PAGE = 100
+    // Process up to 5 pages per request. Already-owned albums are just fast
+    // DB lookups (no Discogs API call), so 5 pages of already-owned takes ~5s.
+    // New albums require a Discogs API call each, so we stop early if we've
+    // fetched too many to stay within Railway's 25s timeout.
+    const MAX_PAGES = 5
 
     try {
-        // If starting fresh, compute resume page from how many Discogs albums
-        // the user already has so we don't re-scan pages they've already imported
-        let resumePage = Number(start_page)
-        if (resumePage === 1) {
-            const [[{ already_imported }]] = await pool.query(
-                `SELECT COUNT(*) AS already_imported
-                 FROM user_albums ua
-                 JOIN albums a ON ua.album_id = a.album_id
-                 WHERE ua.users_id = ? AND a.source = 'discogs'`,
-                [userId]
-            )
-            if (already_imported > 0) {
-                resumePage = Math.floor(already_imported / PER_PAGE) + 1
-            }
-        }
+        const startPageNum = Number(start_page)
 
         // First fetch to get total count and first batch of releases
-        const firstPage = await fetchCollectionPage(cleanUsername, resumePage)
+        const firstPage = await fetchCollectionPage(cleanUsername, startPageNum)
         const total = firstPage.pagination.items
         const totalPages = firstPage.pagination.pages
 
@@ -474,71 +463,70 @@ exports.importCollection = async (req, res, next) => {
             })
         }
 
-        // If we've already imported everything, let the user know
-        if (resumePage > totalPages) {
-            return res.status(200).json({
-                message: 'Your full Discogs collection has already been imported!',
-                imported: 0,
-                already_owned: total,
-                failed: 0,
-                total,
-                total_pages: totalPages,
-                current_page: totalPages,
-                next_page: null
-            })
-        }
-
         let imported = 0
         let already_owned = 0
         let failed = 0
 
-        const endPage = Math.min(totalPages, resumePage + MAX_PAGES - 1)
+        const endPage = Math.min(totalPages, startPageNum + MAX_PAGES - 1)
         // Process all releases across all pages
         const allReleases = [...firstPage.releases]
 
         // Fetch remaining pages
-        for (let page = resumePage + 1; page <= endPage; page++) {
+        for (let page = startPageNum + 1; page <= endPage; page++) {
             await sleep(1000) // 1 second between page requests
             const pageData = await fetchCollectionPage(cleanUsername, page)
             allReleases.push(...pageData.releases)
         }
 
-        // Process each release
+        // ── Step 1: Bulk-check which discogs IDs already exist in our albums table ──
+        const allDiscogsIds = allReleases
+            .map(item => item.basic_information?.id || item.id)
+            .filter(Boolean)
+
+        const placeholders = allDiscogsIds.map(() => '?').join(',')
+        const [existingAlbumRows] = await pool.query(
+            `SELECT album_id, discogs_id FROM albums WHERE discogs_id IN (${placeholders})`,
+            allDiscogsIds
+        )
+        const albumByDiscogsId = {}
+        for (const row of existingAlbumRows) {
+            albumByDiscogsId[row.discogs_id] = row.album_id
+        }
+
+        // ── Step 2: Bulk-check which of those album_ids are already in user's collection ──
+        const knownAlbumIds = Object.values(albumByDiscogsId)
+        const userOwnedSet = new Set()
+        if (knownAlbumIds.length > 0) {
+            const idPlaceholders = knownAlbumIds.map(() => '?').join(',')
+            const [userAlbumRows] = await pool.query(
+                `SELECT album_id FROM user_albums
+                 WHERE users_id = ? AND album_id IN (${idPlaceholders})`,
+                [userId, ...knownAlbumIds]
+            )
+            for (const row of userAlbumRows) {
+                userOwnedSet.add(row.album_id)
+            }
+        }
+
+        // ── Step 3: Process each release ─────────────────────────────────────────
         for (const item of allReleases) {
+            const discogsId = item.basic_information?.id || item.id
+            if (!discogsId) { failed++; continue }
+
             try {
-                const discogsId = item.basic_information?.id || item.id
+                let albumId = albumByDiscogsId[discogsId]
 
-                if (!discogsId) {
-                    failed++
-                    continue
-                }
-
-                // Check if album already exists in Groovist by discogs_id
-                const [existingAlbum] = await pool.query(
-                    `SELECT album_id FROM albums WHERE discogs_id = ?`,
-                    [discogsId]
-                )
-
-                let albumId
-
-                if (existingAlbum.length > 0) {
-                    // Album exists — use it
-                    albumId = existingAlbum[0].album_id
-                } else {
-                    // Album doesn't exist — import it
-                    await sleep(200) // rate limit
+                if (!albumId) {
+                    // Album not in Groovist DB — fetch from Discogs and insert
+                    await sleep(200)
                     const release = await fetchRelease(discogsId)
 
-                    if (!release) {
-                        failed++
-                        continue
-                    }
+                    if (!release) { failed++; continue }
 
                     // Get or create performer
                     const performerName = release.artists?.[0]?.name || 'Unknown Artist'
                     const cleanName = performerName.replace(/\s*\(\d+\)\s*$/, '').trim()
 
-                    // Check if performer exists
                     let performerId
                     const [existingPerformer] = await pool.execute(
                         `SELECT p.performer_id FROM performers p
@@ -546,22 +534,19 @@ exports.importCollection = async (req, res, next) => {
                         WHERE LOWER(a.alias) = LOWER(?)`,
                         [cleanName]
                     )
-
                     if (existingPerformer.length > 0) {
                         performerId = existingPerformer[0].performer_id
                     } else {
-                        // Create performer
                         const [perfResult] = await pool.execute(
-                            `INSERT INTO performers (performer_type) VALUES ('artist')`,
-                            []
+                            `INSERT INTO performers (performer_type) VALUES ('artist')`, []
                         )
                         performerId = perfResult.insertId
-
                         await pool.execute(
                             `INSERT INTO artists (performer_id, alias) VALUES (?, ?)`,
                             [performerId, cleanName]
                         )
                     }
+
                     // Get or create label
                     let labelId = null
                     const labelName = release.labels?.[0]?.name
@@ -574,27 +559,21 @@ exports.importCollection = async (req, res, next) => {
                             labelId = existingLabel[0].label_id
                         } else {
                             const [labelResult] = await pool.execute(
-                                `INSERT INTO labels (label_name) VALUES (?)`,
-                                [labelName]
+                                `INSERT INTO labels (label_name) VALUES (?)`, [labelName]
                             )
                             labelId = labelResult.insertId
                         }
                     }
+
                     // Get or create format
                     const formatName = release.formats?.[0]?.name || 'Vinyl'
                     const [existingFormat] = await pool.execute(
                         `SELECT format_id FROM formats WHERE LOWER(format_name) = LOWER(?)`,
                         [formatName]
                     )
-                    let formatId = existingFormat.length > 0
-                        ? existingFormat[0].format_id
-                        : 1 // Default to Vinyl
+                    const formatId = existingFormat.length > 0 ? existingFormat[0].format_id : 1
 
-                    // Create album
-                    const releaseYear = release.year || null
-                    const coverImage = release.images?.[0]?.uri || null
-                    const title = release.title || 'Unknown Title'
-
+                    // Insert album
                     const [albumResult] = await pool.execute(
                         `INSERT INTO albums (
                             performer_id, label_id, format_id,
@@ -603,69 +582,59 @@ exports.importCollection = async (req, res, next) => {
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, 'discogs')`,
                         [
                             performerId, labelId, formatId,
-                            title, releaseYear, coverImage,
+                            release.title || 'Unknown Title',
+                            release.year || null,
+                            release.images?.[0]?.uri || null,
                             discogsId
                         ]
                     )
                     albumId = albumResult.insertId
+                    albumByDiscogsId[discogsId] = albumId
 
                     // Add genres
                     if (release.genres?.length > 0) {
                         for (const genreName of release.genres) {
                             const [genreRows] = await pool.execute(
-                                `SELECT genre_id FROM genres
-                                WHERE LOWER(genre_name) = LOWER(?)`,
+                                `SELECT genre_id FROM genres WHERE LOWER(genre_name) = LOWER(?)`,
                                 [genreName]
                             )
                             if (genreRows.length > 0) {
                                 await pool.execute(
-                                    `INSERT IGNORE INTO album_genres (album_id, genre_id)
-                                    VALUES (?, ?)`,
+                                    `INSERT IGNORE INTO album_genres (album_id, genre_id) VALUES (?, ?)`,
                                     [albumId, genreRows[0].genre_id]
                                 )
                             }
                         }
                     }
+
                     // Import tracks
                     if (release.tracklist?.length > 0) {
                         for (const track of release.tracklist) {
                             if (track.type_ === 'track') {
                                 await pool.execute(
-                                    `INSERT INTO tracks (album_id, position, title, duration)
-                                    VALUES (?, ?, ?, ?)`,
-                                    [
-                                        albumId,
-                                        track.position || null,
-                                        track.title || 'Unknown',
-                                        track.duration || null
-                                    ]
+                                    `INSERT INTO tracks (album_id, position, title, duration) VALUES (?, ?, ?, ?)`,
+                                    [albumId, track.position || null, track.title || 'Unknown', track.duration || null]
                                 )
                             }
                         }
                     }
                 }
 
-                // Check if already in user's collection
-                const [existingUserAlbum] = await pool.execute(
-                    `SELECT user_album_id FROM user_albums
-                    WHERE users_id = ? AND album_id = ?`,
-                    [userId, albumId]
-                )
-
-                if (existingUserAlbum.length > 0) {
+                // Add to user's collection if not already there
+                if (userOwnedSet.has(albumId)) {
                     already_owned++
                 } else {
-                    // Add to user's collection
                     await pool.execute(
-                        `INSERT INTO user_albums (users_id, album_id) VALUES (?, ?)`,
+                        `INSERT IGNORE INTO user_albums (users_id, album_id) VALUES (?, ?)`,
                         [userId, albumId]
                     )
+                    userOwnedSet.add(albumId)
                     imported++
                 }
-                } catch (itemErr) {
-                    logger.error('Failed to import release', { message: itemErr.message, discogsId })
-                    failed++
-                }
+            } catch (itemErr) {
+                logger.error('Failed to import release', { message: itemErr.message, discogsId })
+                failed++
+            }
         }
 
         // Calculate next page
