@@ -11,8 +11,8 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') }
 const pool = require('../config/dbconfig')
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const DISCOGS_USERNAME = '7evenQuasars'   // <-- change this
-const USER_ID          = 12                          // <-- change to Groovist users_id
+const DISCOGS_USERNAME = 'YOUR_NAME'   // <-- change this
+const USER_ID          = 0                          // <-- change to Groovist users_id
 const DRY_RUN          = true                       // true = no DB writes, just logs
 // ─────────────────────────────────────────────────────────────────────────────
 
